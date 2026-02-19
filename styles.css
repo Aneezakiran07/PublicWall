@@ -437,3 +437,5 @@ textarea::placeholder { color: var(--muted); }
   .compose-actions { flex-direction: column; }
   .post-btn { width: 100%; text-align: center; }
 }
+
+
