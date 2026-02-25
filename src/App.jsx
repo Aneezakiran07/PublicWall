@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://cvchsjpvszyeryrfffek.supabase.co";
@@ -26,17 +26,16 @@ const INK_PRESETS = [
   "#e91e8c","#00897b","#5c6bc0","#f57f17","#4a148c","#1b5e20",
 ];
 
-// kawaii sticker packs shown in the sticker picker
 const STICKER_PACKS = [
   { label: "😀 Smileys", stickers: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","😉","😊","😇","🥰","😍","🤩","😘","😗","☺️","😚","😙","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤫","🤔","🤐","🤨","😐","😑","😶","😏","😒","🙄","😬","🤥","😌","😔","😪","🤤","😴","😷","🤒","🤕","🤢","🤮","🤧","🥵","🥶","🥴","😵","🤯","🤠","🥳","🥸","😎","🤓","🧐","😕","😟","🙁","☹️","😮","😯","😲","😳","🥺","😦","😧","😨","😰","😥","😢","😭","😱","😖","😣","😞","😓","😩","😫","🥱","😤","😡","😠","🤬","😈","👿","💀","☠️","💩","🤡","👹","👺","👻","👽","👾","🤖"] },
   { label: "👋 People", stickers: ["👋","🤚","🖐️","✋","🖖","👌","🤌","🤏","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","✍️","💅","🤳","💪","🦾","🦿","🦵","🦶","👂","🦻","👃","🧠","🫀","🫁","🦷","🦴","👀","👁️","👅","👄","💋","👶","🧒","👦","👧","🧑","👱","👨","🧔","👩","🧓","👴","👵","🙍","🙎","🙅","🙆","💁","🙋","🧏","🙇","🤦","🤷"] },
-  { label: "❤️ Hearts", stickers: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❤️‍🔥","❤️‍🩹","❣️","💕","💞","💓","💗","💖","💘","💝","💟","☮️","✝️","☪️","🕉️","✡️","🔯","🪯","☯️","☦️","🛐","⛎","♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓","🆔","⚛️","🉑","☢️","☣️","📴","📳","🈶","🈚","🈸","🈺","🈷️","✴️","🆚","💮","🉐","㊙️","㊗️","🈴","🈵","🈹","🈲","🅰️","🅱️","🆎","🆑","🅾️","🆘","❌","⭕","🛑","⛔","📛","🚫","💯","💢","♨️","🚷","🚯","🚳","🚱","🔞","📵","🔕"] },
-  { label: "🐱 Animals", stickers: ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🙈","🙉","🙊","🐔","🐧","🐦","🐤","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄","🐝","🪱","🐛","🦋","🐌","🐞","🐜","🪲","🦟","🦗","🕷️","🦂","🐢","🦎","🐍","🐲","🦕","🦖","🐳","🐋","🦈","🦭","🐬","🐟","🐠","🐡","🦐","🦞","🦀","🐙","🦑","🦪","🐚","🐌","🦔","🐾","🐉","🌵","🎄","🌲","🌳","🌴","🪵","🌱","🌿","☘️","🍀","🎍","🪴","🎋","🍃","🍂","🍁","🍄","🌾","💐","🌷","🌹","🥀","🪷","🌺","🌸","🌼","🌻","🌞","🌝","🌛","🌜","🌚","🌕","🌖","🌗","🌘","🌑","🌒","🌓","🌔","🌙","🌟","⭐","🌠","🌌","☀️","⛅","🌤️","🌈","☁️","🌧️","⛈️","🌩️","🌨️","❄️","☃️","⛄","🌊","🌀","🌈"] },
-  { label: "🍔 Food", stickers: ["🍏","🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍈","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦","🥬","🥒","🌶️","🫑","🧄","🧅","🥔","🍠","🥐","🥯","🍞","🥖","🥨","🧀","🥚","🍳","🧈","🥞","🧇","🥓","🥩","🍗","🍖","🌭","🍔","🍟","🍕","🫓","🥙","🧆","🌮","🌯","🫔","🥗","🥘","🫕","🍝","🍜","🍲","🍛","🍣","🍱","🥟","🦪","🍤","🍙","🍚","🍘","🍥","🥮","🍢","🧁","🍰","🎂","🍮","🍭","🍬","🍫","🍿","🍩","🍪","🌰","🥜","🫘","🍯","🧃","🥤","🧋","☕","🍵","🧉","🍺","🍻","🥂","🍷","🥃","🍸","🍹","🧊","🥄","🍴","🍽️","🥢","🧂"] },
+  { label: "❤️ Hearts", stickers: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❤️‍🔥","❤️‍🩹","❣️","💕","💞","💓","💗","💖","💘","💝","💟","🫶","💑","💏","🥰","😍","😘","💌","💋","🌹","🥀","🌸","🌺","🌻","🌼","🌷","🎀","🎊","🎉","🎈","✨","💫","⭐","🌟","🌙","☀️","🌈","🎆","🎇","🧨","🎁","🎗️","🏵️"] },
+  { label: "🐱 Animals", stickers: ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🙈","🙉","🙊","🐔","🐧","🐦","🐤","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄","🐝","🦋","🐌","🐞","🐜","🐢","🦎","🐍","🐲","🦕","🦖","🐳","🐋","🦈","🦭","🐬","🐟","🐠","🐡","🐙","🦑","🦪","🐚","🦔","🦊","🐾","🌵","🎄","🌲","🌳","🌴","🌱","🌿","☘️","🍀","🌾","💐","🌷","🌹","🥀","🌺","🌸","🌼","🌻"] },
+  { label: "🍔 Food", stickers: ["🍏","🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦","🥬","🥒","🌶️","🧄","🧅","🥔","🍠","🥐","🥯","🍞","🥖","🥨","🧀","🥚","🍳","🧈","🥞","🧇","🥓","🥩","🍗","🍖","🌭","🍔","🍟","🍕","🌮","🌯","🥗","🥘","🍝","🍜","🍲","🍛","🍣","🍱","🥟","🍤","🍙","🍚","🍘","🍥","🥮","🍢","🧁","🍰","🎂","🍮","🍭","🍬","🍫","🍿","🍩","🍪","🌰","🥜","🍯","🧃","🥤","🧋","☕","🍵","🍶","🍺","🍻","🥂","🍷","🥃","🍸","🍹"] },
   { label: "⚽ Sports", stickers: ["⚽","🏀","🏈","⚾","🥎","🎾","🏐","🏉","🥏","🎱","🪀","🏓","🏸","🏒","🥍","🏑","🏏","🪃","🥅","⛳","🪁","🏹","🎣","🤿","🥊","🥋","🎽","🛹","🛼","🛷","⛸️","🥌","🎿","⛷️","🏂","🪂","🏋️","🤼","🤸","⛹️","🤺","🏇","🧘","🏄","🏊","🤽","🚣","🧗","🚵","🚴","🏆","🥇","🥈","🥉","🏅","🎖️","🏵️","🎗️","🎫","🎟️","🎪","🤹","🎭","🩰","🎨","🎬","🎤","🎧","🎼","🎵","🎶","🎸","🥁","🪘","🎹","🪗","🎷","🎺","🎻","🪕","🎮","🕹️","🎲","♟️","🎯","🎳"] },
-  { label: "✈️ Travel", stickers: ["🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐","🛻","🚚","🚛","🚜","🏍️","🛵","🛺","🚲","🛴","🛹","🛼","🚏","🛣️","🛤️","⛽","🚨","🚥","🚦","🛑","⚓","🛟","⛵","🚤","🛥️","🛳️","⛴️","🚢","✈️","🛩️","🛫","🛬","🪂","💺","🚁","🚟","🚠","🚡","🛰️","🚀","🛸","🏠","🏡","🏢","🏣","🏤","🏥","🏦","🏨","🏩","🏪","🏫","🏭","🗼","🗽","⛪","🕌","🛕","🕍","⛩️","🕋","⛲","⛺","🌁","🌃","🏙️","🌄","🌅","🌆","🌇","🌉","♾️","🎠","🎡","🎢","💈","🎪"] },
-  { label: "💼 Objects", stickers: ["⌚","📱","💻","⌨️","🖥️","🖨️","🖱️","🖲️","💽","💾","💿","📀","📷","📸","📹","🎥","📽️","🎞️","📞","☎️","📟","📠","📺","📻","🧭","⏱️","⏲️","⏰","🕰️","⌛","⏳","📡","🔋","🔌","💡","🔦","🕯️","🪔","🧯","🛢️","💸","💵","💴","💶","💷","🪙","💰","💳","💎","⚖️","🦯","🔧","🔨","⚒️","🛠️","⛏️","🪚","🔩","🪛","🔫","🧲","💣","🪜","🧱","🪞","🪟","🛏️","🛋️","🚪","🪑","🚽","🪠","🚿","🛁","🪤","🧴","🧷","🧹","🧺","🧻","🪣","🧼","🫧","🪥","🧽","🧹","🛒","🚬","⚰️","🪦","⚱️","🗿","🏺","🧿","💈"] },
-  { label: "🌸 Japanese", stickers: ["⛩️","🏯","🗼","🗻","🌋","🏔️","🎌","🎎","🎏","🎐","🎑","🎍","🎋","🎴","🀄","🏮","🪭","🧧","🎊","🎉","🎈","🎀","🎁","🎗️","🎟️","🏵️","🌸","🌺","🌻","🌼","🌷","🍡","🍘","🍙","🍚","🍛","🍜","🍝","🍣","🍤","🍥","🍱","🥟","🍢","🍧","🍨","🍦","🍵","🍶","🥢","🔴","⛄","🌊","🐉","🐲","🦊","🐼","🐨","🦋","🌙","⭐","🌟","✨","💫","🔮","🪄","⛎","🎎","👘","🥻","🩱","👗"] },
+  { label: "✈️ Travel", stickers: ["🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐","🛻","🚚","🚛","🚜","🏍️","🛵","🛺","🚲","🛴","🛹","🛼","⚓","🛟","⛵","🚤","🛥️","🛳️","⛴️","🚢","✈️","🛩️","🛫","🛬","🪂","💺","🚁","🚟","🚠","🚡","🛰️","🚀","🛸","🏠","🏡","🏢","🏣","🏤","🏥","🏦","🏨","🏩","🏪","🏫","🏭","🗼","🗽","⛪","🕌","🛕","🕍","⛩️","🕋","⛲","⛺","🌁","🌃","🏙️","🌄","🌅","🌆","🌇","🌉","🎠","🎡","🎢","💈","🎪"] },
+  { label: "💼 Objects", stickers: ["⌚","📱","💻","⌨️","🖥️","🖨️","🖱️","🖲️","💽","💾","💿","📀","📷","📸","📹","🎥","📽️","🎞️","📞","☎️","📟","📠","📺","📻","🧭","⏱️","⏲️","⏰","🕰️","⌛","⏳","📡","🔋","🔌","💡","🔦","🕯️","🪔","🧯","💸","💵","💴","💶","💷","🪙","💰","💳","💎","⚖️","🔧","🔨","⚒️","🛠️","⛏️","🪚","🔩","🪛","💣","🪜","🧱","🪞","🪟","🛏️","🛋️","🚪","🪑","🚽","🪠","🚿","🛁","🪤","🧴","🧷","🧹","🧺","🧻","🪣","🧼","🫧","🪥","🧽","🧹","🛒","🗿","🏺","🧿","💈"] },
+  { label: "🌸 Japanese", stickers: ["⛩️","🏯","🗼","🗻","🌋","🏔️","🎌","🎎","🎏","🎐","🎑","🎍","🎋","🎴","🀄","🏮","🪭","🧧","🎊","🎉","🎈","🎀","🎁","🎗️","🎟️","🏵️","🌸","🌺","🌻","🌼","🌷","🍡","🍘","🍙","🍚","🍛","🍜","🍝","🍣","🍤","🍥","🍱","🥟","🍢","🍧","🍨","🍦","🍵","🍶","🥢","🔴","🌊","🐉","🐲","🦊","🐼","🐨","🦋","🌙","⭐","🌟","✨","💫","🔮","🪄","🎎","👘","🥻","🩱","👗"] },
   { label: "💅 Aesthetic", stickers: ["✨","💫","⭐","🌟","🌸","🌺","🌻","🦋","🌙","☀️","🌈","💎","🔮","🪄","🧿","🕯️","🫧","🌊","🍃","🌿","🍀","🌱","🌾","🌵","🎀","💝","💖","💗","💓","💞","💕","🫶","🤍","🤎","🖤","💜","💙","💚","💛","🧡","❤️","🪷","🌷","🥀","💐","🍄","🌰","🫐","🍓","🍒","🍑","🥭","🍋","🍊","🫶","🙌","👐","🤲","🫂","💆","💅","🧖","🧘","🛁","🕯️","🧸","🪆","🎠","🎡","🫙","🍯","🧋","☕","🍵","🌙","🌛","🌜","🌝","⛅","🌤️","🌧️","❄️","🌨️","☃️"] },
 ];
 
@@ -134,9 +133,7 @@ const PAGE_THEMES = [
   },
 ];
 
-function rand(min, max) {
-  return Math.random() * (max - min) + min;
-}
+function rand(min, max) { return Math.random() * (max - min) + min; }
 
 function generateEdgePlacements(pool, count = 10) {
   const zones = [
@@ -180,587 +177,6 @@ function PageDecorations({ emojis, themeId }) {
         </div>
       ))}
     </>
-  );
-}
-
-// draggable + resizable sticker/gif placed on the page
-function StickerNode({ sticker, onDelete, onDragEnd, onResize, pageRef }) {
-  const wrapRef = useRef(null);
-  const dragging = useRef(false);
-  const resizing = useRef(false);
-  const dragOffset = useRef({ x: 0, y: 0 });
-  const resizeStart = useRef({ mouseX: 0, mouseY: 0, size: 120 });
-  const hasDragged = useRef(false);
-  const currentSize = sticker.size || (sticker.type === "sticker" ? 64 : 120);
-
-  const handleMouseDown = (e) => {
-    if (e.target.closest(".delete-btn") || e.target.closest(".resize-handle")) return;
-    e.preventDefault();
-    e.stopPropagation();
-    dragging.current = true;
-    hasDragged.current = false;
-    const rect = wrapRef.current.getBoundingClientRect();
-    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    wrapRef.current.style.opacity = "0.75";
-    wrapRef.current.style.cursor = "grabbing";
-    wrapRef.current.style.zIndex = "999";
-    const onMove = (ev) => {
-      if (!dragging.current) return;
-      hasDragged.current = true;
-      const pageRect = pageRef.current.getBoundingClientRect();
-      wrapRef.current.style.left = `${ev.clientX - pageRect.left - dragOffset.current.x}px`;
-      wrapRef.current.style.top  = `${ev.clientY - pageRect.top  - dragOffset.current.y}px`;
-    };
-    const onUp = (ev) => {
-      if (!dragging.current) return;
-      dragging.current = false;
-      wrapRef.current.style.opacity = "1";
-      wrapRef.current.style.cursor = "";
-      wrapRef.current.style.zIndex = "";
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      if (hasDragged.current) {
-        const pageRect = pageRef.current.getBoundingClientRect();
-        onDragEnd(sticker.id, ev.clientX - pageRect.left - dragOffset.current.x, ev.clientY - pageRect.top - dragOffset.current.y);
-      }
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  };
-
-  const handleResizeDown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resizing.current = true;
-    resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, size: currentSize };
-    wrapRef.current.style.zIndex = "999";
-    const onMove = (ev) => {
-      if (!resizing.current) return;
-      const dx = ev.clientX - resizeStart.current.mouseX;
-      const dy = ev.clientY - resizeStart.current.mouseY;
-      const delta = Math.sqrt(dx*dx + dy*dy) * (dx + dy > 0 ? 1 : -1);
-      const newSize = Math.max(32, Math.min(400, resizeStart.current.size + delta));
-      // update visually without re-render for smoothness
-      const inner = wrapRef.current.querySelector(".sticker-gif, .sticker-emoji");
-      if (inner) {
-        if (sticker.type === "gif") inner.style.width = `${newSize}px`;
-        else inner.style.fontSize = `${newSize}px`;
-      }
-    };
-    const onUp = (ev) => {
-      if (!resizing.current) return;
-      resizing.current = false;
-      wrapRef.current.style.zIndex = "";
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      const dx = ev.clientX - resizeStart.current.mouseX;
-      const dy = ev.clientY - resizeStart.current.mouseY;
-      const delta = Math.sqrt(dx*dx + dy*dy) * (dx + dy > 0 ? 1 : -1);
-      const newSize = Math.max(32, Math.min(400, resizeStart.current.size + delta));
-      onResize(sticker.id, Math.round(newSize));
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  };
-
-  return (
-    <div
-      ref={wrapRef}
-      className="sticker-node"
-      style={{ left: sticker.position_x, top: sticker.position_y }}
-      onMouseDown={handleMouseDown}
-      data-sticker-id={sticker.id}
-    >
-      {sticker.type === "gif" ? (
-        <img src={sticker.content} alt="gif" className="sticker-gif" draggable={false} style={{ width: currentSize }} />
-      ) : (
-        <span className="sticker-emoji" style={{ fontSize: currentSize }}>{sticker.content}</span>
-      )}
-      <button className="delete-btn" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(sticker.id); }}>×</button>
-      <div className="resize-handle" onMouseDown={handleResizeDown} title="drag to resize">⤡</div>
-    </div>
-  );
-}
-
-// giphy search popup
-function GifPicker({ onSelect, onClose }) {
-  const [query, setQuery] = useState("");
-  const [gifs, setGifs] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const ref = useRef(null);
-  const debounceRef = useRef(null);
-
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-    setTimeout(() => document.addEventListener("mousedown", h), 10);
-    return () => document.removeEventListener("mousedown", h);
-  }, [onClose]);
-
-  const search = async (q) => {
-    if (!q.trim()) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=16&rating=g`);
-      const data = await res.json();
-      setGifs(data.data || []);
-    } catch {
-      setGifs([]);
-    }
-    setLoading(false);
-  };
-
-  const searchTrending = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_KEY}&limit=16&rating=g`);
-      const data = await res.json();
-      setGifs(data.data || []);
-    } catch {
-      setGifs([]);
-    }
-    setLoading(false);
-  };
-
-  // load trending on open
-  useEffect(() => { searchTrending(); }, []);
-
-  const handleChange = (e) => {
-    const val = e.target.value;
-    setQuery(val);
-    // debounce live search as user types
-    clearTimeout(debounceRef.current);
-    if (!val.trim()) { searchTrending(); return; }
-    debounceRef.current = setTimeout(() => search(val), 400);
-  };
-
-  const handleKey = (e) => { if (e.key === "Enter") { clearTimeout(debounceRef.current); search(query); } };
-
-  const handleTag = (t) => { setQuery(t); search(t); };
-
-  return (
-    <div ref={ref} className="gif-picker" onClick={(e) => e.stopPropagation()}>
-      <p className="picker-label">🎞️ Giphy GIFs</p>
-      <div className="gif-search-row">
-        <input
-          className="gif-search-input"
-          value={query}
-          onChange={handleChange}
-          onKeyDown={handleKey}
-          placeholder="search gifs... (type or press Enter)"
-          autoFocus
-        />
-      </div>
-      <div className="quick-tags">
-        {["kawaii","sakura","cat","bunny","anime","heart","cute","funny"].map((t) => (
-          <button key={t} className="quick-tag" onClick={() => handleTag(t)}>{t}</button>
-        ))}
-      </div>
-      {loading ? (
-        <div className="gif-loading">loading~</div>
-      ) : (
-        <div className="gif-grid">
-          {gifs.map((g) => (
-            <img
-              key={g.id}
-              src={g.images.fixed_height_small.url}
-              alt={g.title}
-              className="gif-thumb"
-              onClick={() => { onSelect(g.images.fixed_height.url); onClose(); }}
-            />
-          ))}
-          {gifs.length === 0 && <div className="gif-loading">no results 🥺</div>}
-        </div>
-      )}
-      <p style={{ fontSize: 9, color: "#cca0b8", textAlign: "right", marginTop: 4, fontFamily: "'Patrick Hand', cursive" }}>Powered by GIPHY</p>
-    </div>
-  );
-}
-
-// emoji keyword map — emoji → searchable keywords
-const EMOJI_KEYWORDS = {
-  "😀":"smile happy grin face",
-  "😃":"smile happy grin big",
-  "😄":"smile happy laugh grin",
-  "😁":"grin beam smile happy",
-  "😆":"laugh grin happy",
-  "😅":"sweat nervous laugh smile",
-  "🤣":"rolling laugh funny",
-  "😂":"laugh cry tears funny",
-  "🙂":"smile slight",
-  "🙃":"upside smile",
-  "😉":"wink",
-  "😊":"smile blush happy",
-  "😇":"angel halo smile innocent",
-  "🥰":"love hearts smile adore",
-  "😍":"heart eyes love",
-  "🤩":"star eyes excited wow",
-  "😘":"kiss love heart",
-  "😗":"kiss",
-  "☺️":"smile blush",
-  "😚":"kiss closed eyes",
-  "😙":"kiss smiling",
-  "🥲":"smile tear",
-  "😋":"yum tongue food",
-  "😛":"tongue silly",
-  "😜":"wink tongue crazy",
-  "🤪":"crazy silly zany",
-  "😝":"tongue eyes closed",
-  "🤑":"money greedy",
-  "🤗":"hug",
-  "🤭":"oops covered mouth",
-  "🤫":"shush quiet secret",
-  "🤔":"thinking hmm",
-  "🤐":"zipper mouth quiet",
-  "🤨":"raised eyebrow skeptical",
-  "😐":"neutral face",
-  "😑":"expressionless",
-  "😶":"no mouth silent",
-  "😏":"smirk",
-  "😒":"unamused unhappy",
-  "🙄":"eye roll",
-  "😬":"grimace nervous",
-  "🤥":"lying pinocchio",
-  "😌":"relieved calm",
-  "😔":"pensive sad",
-  "😪":"sleepy tired",
-  "🤤":"drool hungry",
-  "😴":"sleep tired zzz",
-  "😷":"sick mask ill",
-  "🤒":"sick thermometer ill",
-  "🤕":"hurt injured",
-  "🤢":"nauseous sick green",
-  "🤮":"vomit sick disgusted",
-  "🤧":"sneeze tissues sick",
-  "🥵":"hot sweating",
-  "🥶":"cold freezing",
-  "🥴":"woozy dizzy",
-  "😵":"dizzy dead eyes",
-  "🤯":"mind blown explode",
-  "🤠":"cowboy hat",
-  "🥳":"party celebrate birthday",
-  "🥸":"disguise glasses incognito",
-  "😎":"cool sunglasses",
-  "🤓":"nerd glasses smart",
-  "🧐":"monocle smart curious",
-  "😕":"confused worried",
-  "😟":"worried",
-  "🙁":"frown sad",
-  "☹️":"frown sad",
-  "😮":"surprised open mouth",
-  "😯":"hushed surprised",
-  "😲":"astonished shocked",
-  "😳":"flushed embarrassed",
-  "🥺":"pleading puppy eyes sad cute",
-  "😦":"frown open mouth",
-  "😧":"anguished",
-  "😨":"fearful scared",
-  "😰":"anxious sweat worried",
-  "😥":"sad disappointed",
-  "😢":"cry tear sad",
-  "😭":"crying sob loud sad",
-  "😱":"scream scared horror",
-  "😖":"confounded",
-  "😣":"persevere struggle",
-  "😞":"disappointed sad",
-  "😓":"downcast sweat",
-  "😩":"weary tired",
-  "😫":"tired exhausted",
-  "🥱":"yawn tired bored",
-  "😤":"steam angry huff",
-  "😡":"angry mad pouting",
-  "😠":"angry mad",
-  "🤬":"angry swear symbols",
-  "😈":"devil smiling evil",
-  "👿":"angry devil",
-  "💀":"skull death dead",
-  "☠️":"skull crossbones death",
-  "💩":"poop",
-  "🤡":"clown",
-  "👹":"ogre monster japanese oni",
-  "👺":"goblin mask japanese red",
-  "👻":"ghost boo halloween",
-  "👽":"alien ufo",
-  "👾":"alien monster game",
-  "🤖":"robot",
-  "❤️":"heart love red",
-  "🧡":"heart orange",
-  "💛":"heart yellow",
-  "💚":"heart green",
-  "💙":"heart blue",
-  "💜":"heart purple",
-  "🖤":"heart black",
-  "🤍":"heart white",
-  "🤎":"heart brown",
-  "💔":"broken heart sad",
-  "❤️‍🔥":"heart fire passion",
-  "❤️‍🩹":"mending healing heart",
-  "❣️":"heart exclamation",
-  "💕":"two hearts love",
-  "💞":"revolving hearts",
-  "💓":"beating heart",
-  "💗":"growing heart",
-  "💖":"sparkling heart",
-  "💘":"heart arrow cupid love",
-  "💝":"heart ribbon gift love",
-  "💟":"heart decoration",
-  "🐶":"dog puppy pet",
-  "🐱":"cat kitten kitty pet",
-  "🐭":"mouse",
-  "🐹":"hamster",
-  "🐰":"rabbit bunny",
-  "🦊":"fox japan kitsune",
-  "🐻":"bear",
-  "🐼":"panda",
-  "🐨":"koala",
-  "🐯":"tiger",
-  "🦁":"lion",
-  "🐮":"cow",
-  "🐷":"pig",
-  "🐸":"frog",
-  "🐵":"monkey",
-  "🙈":"see no evil monkey",
-  "🙉":"hear no evil monkey",
-  "🙊":"speak no evil monkey",
-  "🐔":"chicken",
-  "🐧":"penguin",
-  "🐦":"bird",
-  "🐤":"chick baby bird",
-  "🦆":"duck",
-  "🦅":"eagle",
-  "🦉":"owl",
-  "🦇":"bat",
-  "🐺":"wolf",
-  "🐗":"boar pig",
-  "🐴":"horse",
-  "🦄":"unicorn magic",
-  "🐝":"bee honey",
-  "🦋":"butterfly pretty",
-  "🐛":"caterpillar worm",
-  "🐌":"snail slow",
-  "🐞":"ladybug red",
-  "🐜":"ant",
-  "🦟":"mosquito bug",
-  "🦗":"cricket bug",
-  "🕷️":"spider",
-  "🦂":"scorpion",
-  "🐢":"turtle slow",
-  "🦎":"lizard",
-  "🐍":"snake",
-  "🐲":"dragon mythical",
-  "🦕":"dinosaur",
-  "🐳":"whale ocean",
-  "🐋":"whale big",
-  "🦈":"shark ocean",
-  "🦭":"seal",
-  "🐬":"dolphin ocean",
-  "🐟":"fish",
-  "🐠":"tropical fish",
-  "🐡":"blowfish",
-  "🦐":"shrimp",
-  "🦞":"lobster",
-  "🦀":"crab",
-  "🐙":"octopus",
-  "🦑":"squid",
-  "🐚":"shell ocean",
-  "🦔":"hedgehog spiky",
-  "🐾":"paw print animal",
-  "🦝":"raccoon tanuki",
-  "🦦":"otter water cute",
-  "🌸":"sakura cherry blossom pink flower japan",
-  "🌺":"hibiscus tropical flower red",
-  "🌻":"sunflower yellow",
-  "🌹":"rose flower red love",
-  "🥀":"wilted rose dead flower",
-  "🪷":"lotus flower pink",
-  "🌷":"tulip pink flower",
-  "🌼":"blossom flower yellow",
-  "💐":"bouquet flowers",
-  "🍀":"four leaf clover lucky",
-  "☘️":"shamrock clover irish",
-  "🌱":"seedling plant grow",
-  "🌿":"herb leaf plant",
-  "🍃":"leaves nature",
-  "🍂":"autumn fall leaves orange",
-  "🍁":"maple leaf autumn canada",
-  "🌲":"evergreen tree",
-  "🌳":"tree nature",
-  "🌴":"palm tree tropical",
-  "🎋":"bamboo japan tanabata",
-  "🌵":"cactus desert",
-  "🍄":"mushroom",
-  "🌾":"sheaf rice grain",
-  "🌊":"wave ocean water",
-  "🌈":"rainbow colorful",
-  "☀️":"sun sunny bright",
-  "🌙":"crescent moon night",
-  "⭐":"star yellow",
-  "🌟":"star glowing bright",
-  "✨":"sparkles shine magic twinkle",
-  "💫":"star dizzy spinning",
-  "🌠":"shooting star wish",
-  "❄️":"snowflake cold winter ice",
-  "☃️":"snowman winter",
-  "🔥":"fire flame hot",
-  "🌋":"volcano",
-  "🏔️":"mountain snow",
-  "🗻":"mount fuji japan mountain",
-  "🍡":"dango japanese mochi sweet",
-  "🍰":"cake slice birthday",
-  "🧁":"cupcake sweet",
-  "🍭":"lollipop candy sweet",
-  "🍬":"candy sweet",
-  "🍫":"chocolate",
-  "🍩":"donut sweet",
-  "🍪":"cookie sweet baked",
-  "🍮":"custard pudding",
-  "🎂":"birthday cake celebration",
-  "🍕":"pizza",
-  "🍔":"burger hamburger",
-  "🍟":"fries fast food",
-  "🌮":"taco",
-  "🍣":"sushi japanese",
-  "🍜":"ramen noodle soup japanese",
-  "🍝":"pasta spaghetti",
-  "🍛":"curry rice",
-  "🍱":"bento box japanese",
-  "🍵":"green japan matcha tea",
-  "☕":"coffee hot drink",
-  "🧋":"bubble tea boba",
-  "🍶":"sake japanese",
-  "🍺":"beer",
-  "🍷":"wine",
-  "🍓":"strawberry fruit",
-  "🍒":"cherry fruit",
-  "🍑":"peach fruit",
-  "🥭":"mango tropical",
-  "🍋":"lemon yellow sour",
-  "🍊":"orange fruit",
-  "🍇":"grapes purple",
-  "🍉":"watermelon summer",
-  "🍌":"banana yellow",
-  "🫐":"blueberry",
-  "🍏":"green apple",
-  "🍎":"red apple",
-  "⛩️":"torii shrine japan shinto",
-  "🏯":"castle japan",
-  "🗼":"tokyo tower japan",
-  "🎌":"japan flag",
-  "🎎":"japanese dolls hina matsuri",
-  "🎏":"carp streamer koinobori japan",
-  "🎐":"wind chime japan",
-  "🎑":"moon viewing tsukimi japan",
-  "🎍":"pine decoration japan",
-  "🎴":"flower cards hanafuda japan",
-  "🀄":"mahjong",
-  "🏮":"red lantern japan festival",
-  "🪭":"fan japanese",
-  "🧧":"red envelope lucky",
-  "🐉":"dragon chinese",
-  "💎":"diamond gem jewel precious",
-  "🔮":"crystal ball magic fortune",
-  "🪄":"magic wand spell",
-  "🎀":"ribbon bow pink cute",
-  "🎁":"gift present wrapped",
-  "🎉":"party popper celebrate",
-  "🎊":"confetti celebrate party",
-  "🎈":"balloon party",
-  "🎵":"music note song",
-  "🎶":"music notes song",
-  "🎸":"guitar music rock",
-  "🎹":"piano keyboard music",
-  "🎷":"saxophone music jazz",
-  "🎺":"trumpet music",
-  "🎮":"video game controller",
-  "🕹️":"joystick arcade game",
-  "🎲":"dice board game",
-  "🏆":"trophy winner prize",
-  "🥇":"gold medal first",
-  "🎨":"art paint palette",
-  "🖌️":"paintbrush art",
-  "✏️":"pencil write draw",
-  "📚":"books study read",
-  "💅":"nail polish manicure beauty",
-  "🧖":"face mask spa beauty",
-  "🧘":"yoga meditate calm",
-  "🛁":"bath relax",
-  "🕯️":"candle light cozy",
-  "🫧":"bubbles soap clean",
-  "🧸":"teddy bear cute toy",
-  "🪆":"matryoshka doll russian",
-  "🪐":"planet saturn space",
-  "🚀":"rocket space launch",
-  "🌌":"galaxy space stars",
-  "🧿":"evil eye protection blue",
-  "💈":"barber pole",
-  "🎠":"carousel merry go round",
-  "🎡":"ferris wheel fun fair",
-  "🎢":"roller coaster fun"
-};
-
-function searchEmojis(q) {
-  const lower = q.toLowerCase().trim();
-  if (!lower) return [];
-  const all = STICKER_PACKS.flatMap((p) => p.stickers);
-  const seen = new Set();
-  const results = [];
-  for (const s of all) {
-    if (seen.has(s)) continue;
-    seen.add(s);
-    const kw = (EMOJI_KEYWORDS[s] || "").toLowerCase();
-    // match keyword OR pack label
-    const packLabel = STICKER_PACKS.find((p) => p.stickers.includes(s))?.label.toLowerCase() || "";
-    if (kw.includes(lower) || packLabel.includes(lower)) results.push(s);
-  }
-  return results;
-}
-
-// sticker emoji picker popup
-function StickerPicker({ onSelect, onClose }) {
-  const [activeTab, setActiveTab] = useState(0);
-  const [search, setSearch] = useState("");
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-    setTimeout(() => document.addEventListener("mousedown", h), 10);
-    return () => document.removeEventListener("mousedown", h);
-  }, [onClose]);
-
-  const searchResults = search.trim() ? searchEmojis(search) : null;
-  const displayed = searchResults ?? STICKER_PACKS[activeTab].stickers;
-
-  return (
-    <div ref={ref} className="sticker-picker" onClick={(e) => e.stopPropagation()}>
-      <p className="picker-label">🩷 Emoji Palette</p>
-      <input
-        className="sticker-search-input"
-        placeholder="search: cat, heart, star, sakura..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        autoFocus
-      />
-      {!search && (
-        <div className="sticker-tabs">
-          {STICKER_PACKS.map((pack, i) => (
-            <button key={i} className={`sticker-tab${activeTab === i ? " active" : ""}`} onClick={() => setActiveTab(i)}>
-              {pack.label}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="sticker-grid">
-        {displayed.map((s, i) => (
-          <button key={i} className="sticker-btn" title={EMOJI_KEYWORDS[s] || s} onClick={() => { onSelect(s); onClose(); }}>
-            {s}
-          </button>
-        ))}
-        {displayed.length === 0 && (
-          <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "16px", fontFamily: "'Patrick Hand', cursive", fontSize: 12, color: "#b080a0" }}>
-            no emojis found 🥺 try: cat, heart, star, flower
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -816,15 +232,268 @@ function FontPicker({ currentFont, onChange, onClose }) {
   );
 }
 
-function WritingNode({ writing, isEditing, onDelete, onDragEnd, pageRef }) {
+// ─── GIF Picker (Giphy) ───────────────────────────────────────────────────
+function GifPicker({ onSelect, onClose }) {
+  const [query, setQuery] = useState("");
+  const [gifs, setGifs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef(null);
+  const debounceRef = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    setTimeout(() => document.addEventListener("mousedown", h), 10);
+    return () => document.removeEventListener("mousedown", h);
+  }, [onClose]);
+  const search = async (q) => {
+    if (!q.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=16&rating=g`);
+      const data = await res.json();
+      setGifs(data.data || []);
+    } catch {
+      setGifs([]);
+    }
+    setLoading(false);
+  };
+  const searchTrending = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_KEY}&limit=16&rating=g`);
+      const data = await res.json();
+      setGifs(data.data || []);
+    } catch {
+      setGifs([]);
+    }
+    setLoading(false);
+  };
+  useEffect(() => { searchTrending(); }, []);
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setQuery(val);
+    clearTimeout(debounceRef.current);
+    if (!val.trim()) { searchTrending(); return; }
+    debounceRef.current = setTimeout(() => search(val), 400);
+  };
+  const handleKey = (e) => { if (e.key === "Enter") { clearTimeout(debounceRef.current); search(query); } };
+  const handleTag = (t) => { setQuery(t); search(t); };
+  return (
+    <div ref={ref} className="gif-picker" onClick={(e) => e.stopPropagation()}>
+      <p className="picker-label">Giphy GIFs</p>
+      <div className="gif-search-row">
+        <input
+          className="gif-search-input"
+          value={query}
+          onChange={handleChange}
+          onKeyDown={handleKey}
+          placeholder="search gifs... (type or press Enter)"
+          autoFocus
+        />
+      </div>
+      <div className="quick-tags">
+        {["kawaii","sakura","cat","bunny","anime","heart","cute","funny"].map((t) => (
+          <button key={t} className="quick-tag" onClick={() => handleTag(t)}>{t}</button>
+        ))}
+      </div>
+      {loading ? (
+        <div className="gif-loading">loading~</div>
+      ) : (
+        <div className="gif-grid">
+          {gifs.map((g) => (
+            <img
+              key={g.id}
+              src={g.images.fixed_height_small.url}
+              alt={g.title}
+              className="gif-thumb"
+              onClick={() => { onSelect(g.images.fixed_height.url); onClose(); }}
+            />
+          ))}
+          {gifs.length === 0 && <div className="gif-loading">no results</div>}
+        </div>
+      )}
+      <p style={{ fontSize: 9, color: "#cca0b8", textAlign: "right", marginTop: 4, fontFamily: "'Patrick Hand', cursive" }}>Powered by GIPHY</p>
+    </div>
+  );
+}
+
+// ─── Sticker Picker ───────────────────────────────────────────────────────
+function StickerGifPicker({ onPlace, onClose }) {
+  const [tab, setTab] = useState("stickers");
+  const [stickerPack, setStickerPack] = useState(0);
+  const [stickerSearch, setStickerSearch] = useState("");
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    setTimeout(() => document.addEventListener("mousedown", h), 10);
+    return () => document.removeEventListener("mousedown", h);
+  }, [onClose]);
+
+  const filteredStickers = stickerSearch
+    ? STICKER_PACKS.flatMap(p => p.stickers).filter(s => s.includes(stickerSearch.toLowerCase()))
+    : STICKER_PACKS[stickerPack]?.stickers || [];
+
+  return (
+    <div ref={ref} className="sticker-picker" onClick={(e) => e.stopPropagation()}>
+      <div className="sp-tabs">
+        <button className={`sp-tab${tab==="stickers"?" active":""}`} onClick={() => setTab("stickers")}>Stickers</button>
+        <button className={`sp-tab${tab==="gifs"?" active":""}`} onClick={() => setTab("gifs")}>GIFs</button>
+      </div>
+
+      {tab === "stickers" && (
+        <>
+          <div className="sp-search-row">
+            <input
+              className="sp-search"
+              placeholder="Search stickers..."
+              value={stickerSearch}
+              onChange={e => setStickerSearch(e.target.value)}
+            />
+          </div>
+          {!stickerSearch && (
+            <div className="sp-pack-tabs">
+              {STICKER_PACKS.map((p, i) => (
+                <button key={i} className={`sp-pack-tab${stickerPack===i?" active":""}`}
+                  onClick={() => setStickerPack(i)}>
+                  {p.label.split(" ")[0]}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="sp-grid">
+            {filteredStickers.map((s, i) => (
+              <button key={i} className="sp-emoji-btn" onClick={() => { onPlace({ type: "emoji", content: s }); onClose(); }}>
+                {s}
+              </button>
+            ))}
+            {filteredStickers.length === 0 && (
+              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "20px", color: "#c080a0", fontFamily: "'Patrick Hand', cursive", fontSize: 13 }}>
+                No stickers found for "{stickerSearch}"
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {tab === "gifs" && (
+        <GifPicker
+          onSelect={(url) => { onPlace({ type: "gif", content: url }); onClose(); }}
+          onClose={() => {}}
+        />
+      )}
+    </div>
+  );
+}
+
+// Sticker / GIF Node on the page
+function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
+  const wrapRef = useRef(null);
+  const dragging = useRef(false);
+  const resizing = useRef(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const resizeStart = useRef({ mouseX: 0, mouseY: 0, size: 120 });
+  const hasDragged = useRef(false);
+  const currentSize = item.size || (item.media_type === "emoji" ? 64 : 120);
+
+  const handleMouseDown = (e) => {
+    if (e.target.closest(".delete-btn") || e.target.closest(".resize-handle")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragging.current = true;
+    hasDragged.current = false;
+    const rect = wrapRef.current.getBoundingClientRect();
+    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    wrapRef.current.style.opacity = "0.75";
+    wrapRef.current.style.cursor = "grabbing";
+    wrapRef.current.style.zIndex = "999";
+    const onMove = (ev) => {
+      if (!dragging.current) return;
+      hasDragged.current = true;
+      const pageRect = pageRef.current.getBoundingClientRect();
+      wrapRef.current.style.left = `${ev.clientX - pageRect.left - dragOffset.current.x}px`;
+      wrapRef.current.style.top  = `${ev.clientY - pageRect.top  - dragOffset.current.y}px`;
+    };
+    const onUp = (ev) => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      wrapRef.current.style.opacity = "1";
+      wrapRef.current.style.cursor = "";
+      wrapRef.current.style.zIndex = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      if (hasDragged.current) {
+        const pageRect = pageRef.current.getBoundingClientRect();
+        onDragEnd(item.id, ev.clientX - pageRect.left - dragOffset.current.x, ev.clientY - pageRect.top - dragOffset.current.y);
+      }
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
+  const handleResizeDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizing.current = true;
+    resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, size: currentSize };
+    wrapRef.current.style.zIndex = "999";
+    const onMove = (ev) => {
+      if (!resizing.current) return;
+      const dx = ev.clientX - resizeStart.current.mouseX;
+      const dy = ev.clientY - resizeStart.current.mouseY;
+      const delta = Math.sqrt(dx*dx + dy*dy) * (dx + dy > 0 ? 1 : -1);
+      const newSize = Math.max(32, Math.min(400, resizeStart.current.size + delta));
+      const inner = wrapRef.current.querySelector(".sticker-gif, .sticker-emoji");
+      if (inner) {
+        if (item.media_type === "gif") inner.style.width = `${newSize}px`;
+        else inner.style.fontSize = `${newSize}px`;
+      }
+    };
+    const onUp = (ev) => {
+      if (!resizing.current) return;
+      resizing.current = false;
+      wrapRef.current.style.zIndex = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      const dx = ev.clientX - resizeStart.current.mouseX;
+      const dy = ev.clientY - resizeStart.current.mouseY;
+      const delta = Math.sqrt(dx*dx + dy*dy) * (dx + dy > 0 ? 1 : -1);
+      const newSize = Math.max(32, Math.min(400, resizeStart.current.size + delta));
+      onResize(item.id, Math.round(newSize));
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
+  return (
+    <div
+      ref={wrapRef}
+      className="media-node"
+      style={{ left: item.position_x, top: item.position_y }}
+      onMouseDown={handleMouseDown}
+      data-sticker-id={item.id}
+    >
+      {item.media_type === "gif" ? (
+        <img src={item.content} alt="gif" className="sticker-gif" draggable={false} style={{ width: currentSize }} />
+      ) : (
+        <span className="sticker-emoji" style={{ fontSize: currentSize }}>{item.content}</span>
+      )}
+      <button className="delete-btn" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(item.id); }}>×</button>
+      <div className="resize-handle" onMouseDown={handleResizeDown} title="drag to resize">⤡</div>
+    </div>
+  );
+}
+
+function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pageRef }) {
   const ref = useRef(null);
   const wrapRef = useRef(null);
   const saveTimer = useRef(null);
   const isEditingRef = useRef(isEditing);
+  const onStartEditRef = useRef(onStartEdit);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const hasDragged = useRef(false);
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
+  useEffect(() => { onStartEditRef.current = onStartEdit; }, [onStartEdit]);
   useEffect(() => {
     if (isEditing && ref.current) {
       ref.current.focus();
@@ -846,16 +515,18 @@ function WritingNode({ writing, isEditing, onDelete, onDragEnd, pageRef }) {
   const handleBlur = () => {
     const text = ref.current?.innerText?.trim();
     clearTimeout(saveTimer.current);
-    if (!text) { onDelete(writing.id); }
-    else { supabase.from("writings").update({ content: text }).eq("id", writing.id); }
+    if (!text) {
+      onDelete(writing.id);
+    } else {
+      supabase.from("writings").update({ content: text }).eq("id", writing.id)
+        .then(({ error }) => console.log("SAVE RESULT:", error || "success"));
+    }
   };
   const handleMouseDown = (e) => {
     if (isEditingRef.current) return;
     if (e.target.closest(".delete-btn")) return;
-    e.preventDefault();
-    e.stopPropagation();
-    dragging.current = true;
-    hasDragged.current = false;
+    e.preventDefault(); e.stopPropagation();
+    dragging.current = true; hasDragged.current = false;
     const rect = wrapRef.current.getBoundingClientRect();
     dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     wrapRef.current.style.opacity = "0.75";
@@ -885,13 +556,23 @@ function WritingNode({ writing, isEditing, onDelete, onDragEnd, pageRef }) {
     document.addEventListener("mouseup", onUp);
   };
   return (
-    <div ref={wrapRef} className={`writing-node ${isEditing ? "editing" : ""}`}
+    <div
+      ref={wrapRef}
+      className={`writing-node ${isEditing ? "editing" : ""}`}
       style={{ left: writing.position_x, top: writing.position_y, color: writing.font_color, fontFamily: writing.font_style }}
-      data-id={writing.id} onMouseDown={handleMouseDown}>
-      <div ref={ref} className="writing-node-text" contentEditable={isEditing}
-        suppressContentEditableWarning onInput={handleInput}
+      data-id={writing.id}
+      onMouseDown={handleMouseDown}
+    >
+      <div
+        ref={ref}
+        className="writing-node-text"
+        contentEditable={isEditing}
+        suppressContentEditableWarning
+        onInput={handleInput}
         onKeyDown={(e) => { if (e.key === "Escape") ref.current.blur(); }}
-        onBlur={handleBlur} spellCheck={false}>
+        onBlur={handleBlur}
+        spellCheck={false}
+      >
         {writing.content}
       </div>
       <button className="delete-btn" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(writing.id); }}>×</button>
@@ -904,10 +585,10 @@ function ThemeModal({ currentThemeId, onSelect, onClose }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">✨ ページのテーマ · Page Theme</span>
+          <span className="modal-title">ページのテーマ · Page Theme</span>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        <p className="modal-subtitle">かわいい Japanese styles, Change Theme for everyone 🌸</p>
+        <p className="modal-subtitle">かわいい Japanese styles, Change Theme for everyone</p>
         <div className="modal-grid">
           {PAGE_THEMES.map((t) => (
             <button key={t.id} className={`theme-card${currentThemeId===t.id?" selected":""}`}
@@ -936,20 +617,20 @@ function Notification({ message, onDone }) {
   return <div className="notif">{message}</div>;
 }
 
+// ─── Main App ─────────────────────────────────────────────────────────────
 export default function App() {
   const [writings, setWritings]           = useState([]);
-  const [stickers, setStickers]           = useState([]);
+  const [mediaItems, setMediaItems]       = useState([]);
   const [activeInput, setActiveInput]     = useState(null);
   const [inputText, setInputText]         = useState("");
   const [editingId, setEditingId]         = useState(null);
   const [inkColor, setInkColor]           = useState("#1a1a2e");
   const [inkFont,  setInkFont]            = useState(FONTS[0].value);
-  const [showColorPicker, setShowColorPicker]   = useState(false);
-  const [showFontPicker,  setShowFontPicker]    = useState(false);
-  const [showGifPicker,   setShowGifPicker]     = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showFontPicker,  setShowFontPicker]  = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [pageThemeId, setPageThemeId]     = useState("sakura");
-  const [showThemeModal, setShowThemeModal]     = useState(false);
+  const [showThemeModal, setShowThemeModal]   = useState(false);
   const [notification, setNotification]   = useState(null);
   const [transitioning, setTransitioning] = useState(false);
   const [extraHeight, setExtraHeight]     = useState(0);
@@ -969,14 +650,13 @@ export default function App() {
   useEffect(() => { inkColorRef.current    = inkColor;    }, [inkColor]);
   useEffect(() => { inkFontRef.current     = inkFont;     }, [inkFont]);
 
-  const pageTheme = PAGE_THEMES.find((t) => t.id === pageThemeId) || PAGE_THEMES[0];
-
   const closeAllPickers = () => {
     setShowColorPicker(false);
     setShowFontPicker(false);
-    setShowGifPicker(false);
     setShowStickerPicker(false);
   };
+
+  const pageTheme = PAGE_THEMES.find((t) => t.id === pageThemeId) || PAGE_THEMES[0];
 
   useEffect(() => {
     document.body.style.transition = "background 0.5s ease";
@@ -984,22 +664,22 @@ export default function App() {
     document.body.style.backgroundImage = pageTheme.bodyBgImage === "none" ? "" : pageTheme.bodyBgImage;
   }, [pageTheme.bodyBg, pageTheme.bodyBgImage]);
 
-  // load writings
+  // Load writings
   useEffect(() => {
     supabase.from("writings").select("*").order("created_at", { ascending: true })
       .then(({ data }) => { if (data) setWritings(data); });
   }, []);
 
-  // load stickers
+  // Load media items
   useEffect(() => {
-    supabase.from("stickers").select("*").order("created_at", { ascending: true })
-      .then(({ data }) => { if (data) setStickers(data); });
+    supabase.from("media_items").select("*").order("created_at", { ascending: true })
+      .then(({ data }) => { if (data) setMediaItems(data); });
   }, []);
 
-  // load page settings
+  // Load page settings
   useEffect(() => {
     supabase.from("page_settings").select("*").eq("id", PAGE_THEME_ROW_ID).single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (data?.theme_id) setPageThemeId(data.theme_id);
         if (data?.extra_height != null) setExtraHeight(data.extra_height);
         if (!data) {
@@ -1008,7 +688,7 @@ export default function App() {
       });
   }, []);
 
-  // realtime subscriptions
+  // Realtime
   useEffect(() => {
     const channel = supabase
       .channel("writings-room")
@@ -1021,15 +701,14 @@ export default function App() {
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "writings" }, ({ old: row }) => {
         setWritings((prev) => prev.filter((w) => w.id !== row.id));
       })
-      // sticker realtime
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "stickers" }, ({ new: row }) => {
-        setStickers((prev) => prev.some((s) => s.id === row.id) ? prev : [...prev, row]);
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "media_items" }, ({ new: row }) => {
+        setMediaItems((prev) => prev.some((m) => m.id === row.id) ? prev : [...prev, row]);
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "stickers" }, ({ new: row }) => {
-        setStickers((prev) => prev.map((s) => s.id === row.id ? { ...s, ...row } : s));
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "media_items" }, ({ new: row }) => {
+        setMediaItems((prev) => prev.map((m) => m.id === row.id ? { ...m, ...row } : m));
       })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "stickers" }, ({ old: row }) => {
-        setStickers((prev) => prev.filter((s) => s.id !== row.id));
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "media_items" }, ({ old: row }) => {
+        setMediaItems((prev) => prev.filter((m) => m.id !== row.id));
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "page_settings" }, ({ new: row }) => {
         if (row?.theme_id && row?.id === PAGE_THEME_ROW_ID) {
@@ -1051,25 +730,23 @@ export default function App() {
     return () => supabase.removeChannel(channel);
   }, []);
 
-  // click on page to place writing or edit node
+  // Click handler
   useEffect(() => {
     const handler = (e) => {
       if (!pageRef.current?.contains(e.target)) return;
-      const node      = e.target.closest("[data-id]");
-      const sticker   = e.target.closest("[data-sticker-id]");
-      const toolbar   = e.target.closest(".toolbar");
-      const deleteBtn = e.target.closest(".delete-btn");
-      const picker    = e.target.closest(".picker-popup, .gif-picker, .sticker-picker");
-      if (toolbar || deleteBtn || picker || sticker) return;
+      const node        = e.target.closest("[data-id]");
+      const toolbar     = e.target.closest(".toolbar");
+      const deleteBtn   = e.target.closest(".delete-btn");
+      const mediaNode   = e.target.closest(".media-node");
+      const stickerPicker = e.target.closest(".sticker-picker, .gif-picker");
+      if (toolbar || deleteBtn || mediaNode || stickerPicker) return;
       if (node) {
-        e.stopPropagation();
-        e.preventDefault();
+        e.stopPropagation(); e.preventDefault();
         setEditingId(node.dataset.id);
         setActiveInput(null);
         return;
       }
       setEditingId(null);
-      closeAllPickers();
       const rect = pageRef.current.getBoundingClientRect();
       setActiveInput({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
       setInputText("");
@@ -1077,7 +754,7 @@ export default function App() {
     };
     document.addEventListener("click", handler);
     return () => document.removeEventListener("click", handler);
-  }, []);
+  }, [showStickerPicker]);
 
   const handleSubmit = async (e) => {
     const text = inputTextRef.current;
@@ -1112,35 +789,45 @@ export default function App() {
     await supabase.from("writings").update({ position_x: clampedX, position_y: clampedY }).eq("id", id);
   };
 
-  // place a sticker or gif in the center of the current view
-  const placeSticker = async (content, type) => {
+  // Place a media item (emoji or gif) in center of current viewport
+  const handlePlaceMedia = useCallback(async ({ type, content }) => {
     const pageRect = pageRef.current?.getBoundingClientRect();
     const scrollY  = window.scrollY;
     const x = (pageRef.current?.offsetWidth || 900) / 2 - 40;
-    const y = (scrollY - (pageRect?.top ?? 0) + window.innerHeight / 2) - 40;
-    const row = { content, type, position_x: x, position_y: Math.max(20, y) };
-    const { data } = await supabase.from("stickers").insert([row]).select().single();
-    if (data) setStickers((prev) => [...prev, data]);
+    const y = (scrollY - (pageRect?.top ?? 0) + window.scrollY + window.innerHeight / 2) - 40;
+    const defaultSize = type === "emoji" ? 64 : 120;
+    const item = {
+      media_type:  type,
+      content:     content,
+      position_x:  Math.max(0, x),
+      position_y:  Math.max(20, y),
+      size:        defaultSize,
+    };
+    const { data } = await supabase.from("media_items").insert([item]).select().single();
+    if (data) setMediaItems((prev) => [...prev, data]);
+    setShowStickerPicker(false);
+  }, []);
+
+  const handleMediaDelete = async (id) => {
+    setMediaItems((prev) => prev.filter((m) => m.id !== id));
+    await supabase.from("media_items").delete().eq("id", id);
   };
 
-  const handleStickerDelete = async (id) => {
-    setStickers((prev) => prev.filter((s) => s.id !== id));
-    await supabase.from("stickers").delete().eq("id", id);
-  };
-
-  const handleStickerDragEnd = async (id, newX, newY) => {
-    const pageW    = pageRef.current?.offsetWidth || 900;
-    const clampedX = Math.max(0, Math.min(newX, pageW - 120));
+  const handleMediaDragEnd = async (id, newX, newY) => {
+    const pageW = pageRef.current?.offsetWidth || 900;
+    const clampedX = Math.max(0, Math.min(newX, pageW - 50));
     const clampedY = Math.max(0, newY);
-    setStickers((prev) => prev.map((s) => s.id === id ? { ...s, position_x: clampedX, position_y: clampedY } : s));
-    await supabase.from("stickers").update({ position_x: clampedX, position_y: clampedY }).eq("id", id);
+    setMediaItems((prev) => prev.map((m) => m.id === id ? { ...m, position_x: clampedX, position_y: clampedY } : m));
+    await supabase.from("media_items").update({ position_x: clampedX, position_y: clampedY }).eq("id", id);
   };
 
-  const handleStickerResize = async (id, newSize) => {
-    setStickers((prev) => prev.map((s) => s.id === id ? { ...s, size: newSize } : s));
-    await supabase.from("stickers").update({ size: newSize }).eq("id", id);
+  const handleMediaResize = async (id, newSize) => {
+    setMediaItems((prev) => prev.map((m) => m.id === id ? { ...m, size: newSize } : m));
+    const { error } = await supabase.from("media_items").update({ size: newSize }).eq("id", id);
+    if (error) console.error("resize save failed:", error.message, "— make sure the 'size' column exists: ALTER TABLE media_items ADD COLUMN IF NOT EXISTS size float default 120;");
   };
 
+  // When sticker button clicked, capture current cursor position (center of page as fallback)
   const currentFontLabel = FONTS.find((f) => f.value === inkFont)?.label || "Caveat";
 
   return (
@@ -1152,7 +839,9 @@ export default function App() {
 
         body {
           min-height: 100vh;
-          display: flex; flex-direction: column; align-items: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
           padding: 24px 16px;
           font-family: 'Caveat', cursive;
           transition: background 0.5s ease;
@@ -1169,13 +858,11 @@ export default function App() {
           flex-wrap: nowrap; justify-content: center;
           position: relative; z-index: 1000; overflow: visible;
         }
-
         .toolbar-title { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 600; color: #4a2838; letter-spacing: -0.5px; white-space: nowrap; }
-        .live-badge { background: linear-gradient(135deg,#ff85a2,#ff6b9d); color: white; font-size: 11px; font-family: 'Patrick Hand', cursive; padding: 0 10px; border-radius: 20px; height: 22px; display: flex; align-items: center; white-space: nowrap; }
+        .live-badge { background: linear-gradient(135deg,#ff85a2,#ff6b9d); color: white; font-size: 11px; font-family: 'Patrick Hand', cursive; padding: 0 10px; border-radius: 20px; height: 22px; display: flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
         .toolbar-divider { width: 1px; height: 20px; background: rgba(255,160,200,0.35); flex-shrink: 0; }
         .toolbar-label { font-size: 11px; color: #c0909c; font-family: 'Patrick Hand', cursive; white-space: nowrap; }
 
-        /* shared pill style for ALL toolbar buttons */
         .tb-btn {
           display: flex; align-items: center; justify-content: center; gap: 5px;
           height: 32px; padding: 0 14px;
@@ -1197,24 +884,149 @@ export default function App() {
         .ink-btn { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 0 0 1.5px rgba(0,0,0,0.15); cursor: pointer; transition: transform 0.15s; flex-shrink: 0; display: block; }
         .ink-btn:hover { transform: scale(1.12); }
 
-        /* keep these wrappers for popup positioning */
         .font-btn-wrap  { position: relative; overflow: visible; display: flex; align-items: center; }
         .media-btn-wrap { position: relative; overflow: visible; display: flex; align-items: center; }
         .page-btns      { display: flex; align-items: center; gap: 6px; }
 
-        /* pickers shared */
+        /* Sticker / GIF Picker */
+        .sticker-picker {
+          position: absolute;
+          top: calc(100% + 10px);
+          left: 50%; transform: translateX(-50%);
+          background: #fffbf8;
+          border: 1px solid rgba(255,180,210,0.5);
+          border-radius: 18px;
+          padding: 14px;
+          box-shadow: 0 16px 48px rgba(255,107,157,0.2), 0 4px 12px rgba(0,0,0,0.1);
+          z-index: 9999;
+          width: 320px;
+          max-height: 400px;
+          display: flex; flex-direction: column;
+          animation: popIn 0.15s ease;
+        }
+        .sp-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-shrink: 0; }
+        .sp-tab {
+          flex: 1; padding: 6px 0;
+          background: none; border: 1.5px solid rgba(255,180,210,0.4);
+          border-radius: 12px; font-family: 'Patrick Hand', cursive;
+          font-size: 13px; color: #a07888; cursor: pointer;
+          transition: all 0.15s;
+        }
+        .sp-tab:hover { background: rgba(255,210,230,0.3); }
+        .sp-tab.active { background: linear-gradient(135deg,#ff85a2,#ff6b9d); color: white; border-color: transparent; }
+        .sp-search-row { margin-bottom: 8px; flex-shrink: 0; }
+        .sp-search {
+          width: 100%; padding: 7px 12px;
+          background: rgba(255,240,248,0.8);
+          border: 1.5px solid rgba(255,180,210,0.4);
+          border-radius: 12px; outline: none;
+          font-family: 'Patrick Hand', cursive; font-size: 13px;
+          color: #4a2838; transition: border-color 0.15s;
+        }
+        .sp-search:focus { border-color: #ff85a2; }
+        .sp-pack-tabs {
+          display: flex; flex-wrap: wrap; gap: 4px;
+          margin-bottom: 8px; flex-shrink: 0;
+        }
+        .sp-pack-tab {
+          padding: 3px 7px; background: none;
+          border: 1px solid rgba(255,180,210,0.4);
+          border-radius: 8px; font-size: 14px;
+          cursor: pointer; transition: all 0.12s;
+        }
+        .sp-pack-tab:hover { background: rgba(255,210,230,0.3); transform: scale(1.1); }
+        .sp-pack-tab.active { background: linear-gradient(135deg,#ff85a2,#ff6b9d); border-color: transparent; }
+        .sp-grid {
+          display: grid; grid-template-columns: repeat(8, 1fr);
+          gap: 3px; overflow-y: auto; flex: 1;
+        }
+        .sp-emoji-btn {
+          aspect-ratio: 1; border: none; background: none;
+          font-size: 20px; cursor: pointer; border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+          transition: transform 0.1s, background 0.1s;
+        }
+        .sp-emoji-btn:hover { transform: scale(1.3); background: rgba(255,210,230,0.3); }
+
+        .sp-gif-grid {
+          display: grid; grid-template-columns: repeat(3, 1fr);
+          gap: 5px; overflow-y: auto; flex: 1;
+        }
+        .sp-gif-btn {
+          border: none; background: rgba(255,240,248,0.6);
+          border-radius: 8px; overflow: hidden;
+          cursor: pointer; aspect-ratio: 1;
+          padding: 0; transition: transform 0.1s, box-shadow 0.1s;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .sp-gif-btn:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(255,107,157,0.3); }
+        .sp-gif-btn img { width: 100%; height: 100%; object-fit: cover; }
+        .sp-gif-loading {
+          grid-column: 1/-1; display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          padding: 20px; gap: 8px;
+          font-family: 'Patrick Hand', cursive; font-size: 13px; color: #c080a0;
+        }
+        .sp-spinner {
+          width: 24px; height: 24px;
+          border: 3px solid rgba(255,180,210,0.3);
+          border-top-color: #ff85a2;
+          border-radius: 50%;
+          animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .sp-load-more {
+          width: 100%; margin-top: 8px; padding: 7px;
+          background: rgba(255,240,248,0.8);
+          border: 1.5px solid rgba(255,180,210,0.4);
+          border-radius: 12px; cursor: pointer;
+          font-family: 'Patrick Hand', cursive; font-size: 13px;
+          color: #a07888; transition: all 0.15s;
+          flex-shrink: 0;
+        }
+        .sp-load-more:hover { background: rgba(255,210,230,0.4); }
+
+        /* Media Nodes */
+        .media-node {
+          position: absolute; z-index: 10;
+          cursor: grab; user-select: none;
+          animation: inkDrop 0.3s ease-out;
+          display: inline-flex; align-items: flex-start;
+        }
+        .media-node:hover .delete-btn { display: flex; }
+        .media-node:hover .resize-handle { opacity: 1; }
+        .sticker-emoji { display: block; line-height: 1; pointer-events: none; }
+        .sticker-gif { display: block; pointer-events: none; border-radius: 6px; }
+        .resize-handle {
+          position: absolute; bottom: -10px; right: -10px;
+          width: 20px; height: 20px;
+          background: linear-gradient(135deg, #ff85a2, #ff6b9d);
+          border-radius: 50%; cursor: se-resize;
+          opacity: 0; transition: opacity 0.15s;
+          border: 2px solid white;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+          z-index: 21;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 10px; color: white; font-weight: bold;
+          line-height: 1;
+        }
+        .resize-handle:hover { transform: scale(1.2); opacity: 1 !important; }
+
+        /* Pickers */
         .picker-popup {
-          position: absolute; top: calc(100% + 10px); left: 50%; transform: translateX(-50%);
-          background: #fffbf8; border: 1px solid rgba(255,180,210,0.5);
+          position: absolute; top: calc(100% + 10px);
+          left: 50%; transform: translateX(-50%);
+          background: #fffbf8;
+          border: 1px solid rgba(255,180,210,0.5);
           border-radius: 16px; padding: 14px;
           box-shadow: 0 12px 40px rgba(255,107,157,0.2), 0 4px 12px rgba(0,0,0,0.1);
-          z-index: 9999; width: 220px; animation: popIn 0.15s ease;
+          z-index: 9999; width: 220px;
+          animation: popIn 0.15s ease;
         }
         @keyframes popIn {
           from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
         }
-
         .picker-label { display: block; font-family: 'Patrick Hand', cursive; font-size: 11px; color: #b080a0; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
         .swatch-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 12px; }
         .swatch { width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid transparent; cursor: pointer; transition: transform 0.12s; }
@@ -1228,55 +1040,8 @@ export default function App() {
         .font-option:hover { background: rgba(255,210,230,0.3); }
         .font-option.active { border-color: #ff85a2; background: rgba(255,210,230,0.2); }
 
-        /* gif picker */
-        .gif-picker {
-          position: absolute; top: calc(100% + 10px); left: 50%; transform: translateX(-50%);
-          background: #fffbf8; border: 1px solid rgba(255,180,210,0.5);
-          border-radius: 16px; padding: 14px;
-          box-shadow: 0 12px 40px rgba(255,107,157,0.2), 0 4px 12px rgba(0,0,0,0.1);
-          z-index: 9999; width: 300px; animation: popIn 0.15s ease;
-        }
-        .gif-search-row { display: flex; gap: 6px; margin-bottom: 8px; }
-        .gif-search-input { flex: 1; border: 1.5px solid rgba(255,180,210,0.5); border-radius: 10px; padding: 4px 10px; font-family: 'Patrick Hand', cursive; font-size: 12px; color: #4a2838; outline: none; background: white; }
-        .gif-search-input:focus { border-color: #ff85a2; }
-        .gif-search-btn { background: linear-gradient(135deg,#ff85a2,#ff6b9d); color: white; border: none; border-radius: 10px; padding: 4px 12px; font-family: 'Patrick Hand', cursive; font-size: 12px; cursor: pointer; }
-        .quick-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
-        .quick-tag { background: rgba(255,220,238,0.8); border: 1px solid rgba(255,180,210,0.4); border-radius: 20px; padding: 2px 8px; font-family: 'Patrick Hand', cursive; font-size: 10px; color: #8b4060; cursor: pointer; }
-        .quick-tag:hover { background: rgba(255,180,220,0.8); }
-        .gif-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; max-height: 200px; overflow-y: auto; }
-        .gif-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; cursor: pointer; transition: transform 0.12s; }
-        .gif-thumb:hover { transform: scale(1.06); }
-        .gif-loading { font-family: 'Patrick Hand', cursive; font-size: 12px; color: #b080a0; text-align: center; padding: 20px 0; }
-
-        /* sticker picker */
-        .sticker-picker {
-          position: absolute; top: calc(100% + 10px); left: 50%; transform: translateX(-50%);
-          background: #fffbf8; border: 1px solid rgba(255,180,210,0.5);
-          border-radius: 16px; padding: 14px;
-          box-shadow: 0 12px 40px rgba(255,107,157,0.2), 0 4px 12px rgba(0,0,0,0.1);
-          z-index: 9999; width: 340px; animation: popIn 0.15s ease;
-        }
-        .sticker-search-input { width: 100%; border: 1.5px solid rgba(255,180,210,0.5); border-radius: 10px; padding: 5px 10px; font-family: 'Patrick Hand', cursive; font-size: 12px; color: #4a2838; outline: none; background: white; margin-bottom: 8px; }
-        .sticker-search-input:focus { border-color: #ff85a2; }
-        .sticker-tabs { display: flex; gap: 4px; margin-bottom: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
-        .sticker-tabs::-webkit-scrollbar { display: none; }
-        .sticker-tab { background: rgba(255,220,238,0.6); border: 1px solid rgba(255,180,210,0.3); border-radius: 20px; padding: 3px 10px; font-family: 'Patrick Hand', cursive; font-size: 11px; color: #8b4060; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
-        .sticker-tab:hover { background: rgba(255,180,220,0.7); }
-        .sticker-tab.active { background: linear-gradient(135deg,#ff85a2,#ff6b9d); color: white; border-color: transparent; }
-        .sticker-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 220px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,150,190,0.4) transparent; }
-        .sticker-btn { background: none; border: 1.5px solid transparent; border-radius: 8px; padding: 4px; font-size: 22px; cursor: pointer; transition: transform 0.12s, border-color 0.12s; text-align: center; line-height: 1; }
-        .sticker-btn:hover { transform: scale(1.3); border-color: rgba(255,180,210,0.5); background: rgba(255,220,238,0.5); }
-
-        /* sticker node on page */
-        .sticker-node { position: absolute; cursor: grab; z-index: 10; user-select: none; animation: inkDrop 0.25s ease-out; display: inline-block; }
-        .sticker-emoji { line-height: 1; display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15)); }
-        .sticker-gif { border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); display: block; }
-        .resize-handle { position: absolute; bottom: -8px; right: -8px; width: 18px; height: 18px; background: linear-gradient(135deg,#ff85a2,#ff6b9d); border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 10px; color: white; cursor: se-resize; z-index: 20; box-shadow: 0 1px 4px rgba(0,0,0,0.2); user-select: none; line-height: 1; }
-        .sticker-node:hover .resize-handle { display: flex; }
-
-        /* page & writing nodes */
+        /* Page */
         .page-wrapper { position: relative; width: 100%; min-height: 80vh; }
-
         .notebook-page {
           position: relative; width: 100%; min-height: 100vh;
           box-shadow: 0 4px 6px rgba(0,0,0,0.07), 0 10px 40px rgba(0,0,0,0.12), 4px 0 0 rgba(0,0,0,0.06), -2px 0 0 rgba(255,255,255,0.4);
@@ -1286,39 +1051,90 @@ export default function App() {
         }
         .notebook-page.transitioning { opacity: 0; filter: blur(8px); }
 
-        .writing-node { position: absolute; z-index: 10; cursor: grab; animation: inkDrop 0.3s ease-out; user-select: none; max-width: min(380px, calc(100% - 20px)); }
-        .writing-node.editing { cursor: text; }
-        .writing-node-text { display: block; font-size: 20px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; width: 100%; outline: none; border-radius: 2px; padding: 1px 3px; transition: background 0.15s; text-shadow: 0 1px 1px rgba(255,255,255,0.3); min-height: 1.2em; min-width: 4px; }
-        .writing-node:not(.editing):hover .writing-node-text { background: rgba(255,230,80,0.3); }
-        .writing-node.editing .writing-node-text { background: rgba(255,255,255,0.7); box-shadow: 0 0 0 1.5px rgba(100,150,255,0.4); user-select: text; caret-color: currentColor; text-shadow: none; }
-
-        .delete-btn { position: absolute; top: -8px; right: -8px; width: 18px; height: 18px; border-radius: 50%; background: #e74c3c; color: white; border: none; font-size: 14px; line-height: 1; cursor: pointer; display: none; align-items: center; justify-content: center; z-index: 20; padding: 0; }
-        .writing-node:hover .delete-btn,
-        .sticker-node:hover .delete-btn { display: flex; }
-
-        @keyframes inkDrop {
-          from { opacity: 0; transform: scale(0.85); }
-          to   { opacity: 1; transform: scale(1); }
+        /* Writing nodes */
+        .writing-node {
+          position: absolute; z-index: 10;
+          cursor: grab; animation: inkDrop 0.3s ease-out;
+          user-select: none; max-width: min(380px, calc(100% - 20px));
         }
-
+        .writing-node.editing { cursor: text; }
+        .writing-node-text {
+          display: block; font-size: 20px; line-height: 1.4;
+          white-space: pre-wrap; word-break: break-word;
+          width: 100%; outline: none; border-radius: 2px;
+          padding: 1px 3px; transition: background 0.15s;
+          text-shadow: 0 1px 1px rgba(255,255,255,0.3);
+          min-height: 1.2em; min-width: 4px;
+        }
+        .writing-node:not(.editing):hover .writing-node-text { background: rgba(255,230,80,0.3); }
+        .writing-node.editing .writing-node-text {
+          background: rgba(255,255,255,0.7);
+          box-shadow: 0 0 0 1.5px rgba(100,150,255,0.4);
+          user-select: text; caret-color: currentColor; text-shadow: none;
+        }
+        .delete-btn {
+          position: absolute; top: -8px; right: -8px;
+          width: 18px; height: 18px; border-radius: 50%;
+          background: #e74c3c; color: white; border: none;
+          font-size: 14px; line-height: 1; cursor: pointer;
+          display: none; align-items: center; justify-content: center;
+          z-index: 20; padding: 0;
+        }
+        .writing-node:hover .delete-btn { display: flex; }
+        @keyframes inkDrop {
+          from { opacity: 0; transform: translateY(-50%) scale(0.9); }
+          to   { opacity: 1; transform: translateY(-50%) scale(1);   }
+        }
         .active-input-wrapper { position: absolute; transform: translateY(-50%); z-index: 20; }
-        .active-input { background: transparent; border: none; border-bottom: 2px dashed currentColor; outline: none; font-size: 20px; min-width: 200px; max-width: 400px; padding: 0 2px; font-family: inherit; color: inherit; }
+        .active-input {
+          background: transparent; border: none;
+          border-bottom: 2px dashed currentColor;
+          outline: none; font-size: 20px;
+          min-width: 200px; max-width: 400px;
+          padding: 0 2px; font-family: inherit; color: inherit;
+        }
         .active-input::placeholder { opacity: 0.5; font-size: 15px; }
 
-        .modal-backdrop { position: fixed; inset: 0; background: rgba(20,0,10,0.45); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); animation: fadeIn 0.15s ease; }
+        /* Theme modal */
+        .modal-backdrop {
+          position: fixed; inset: 0;
+          background: rgba(20,0,10,0.45);
+          z-index: 2000; display: flex;
+          align-items: center; justify-content: center;
+          backdrop-filter: blur(3px);
+          animation: fadeIn 0.15s ease;
+        }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .modal { background: #fffbf8; border-radius: 22px; width: min(760px, 96vw); max-height: 88vh; overflow-y: auto; box-shadow: 0 24px 70px rgba(255,107,157,0.2), 0 8px 20px rgba(0,0,0,0.12); animation: slideUp 0.22s ease; border: 1px solid rgba(255,180,200,0.5); }
-        @keyframes slideUp { from { transform: translateY(28px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 22px 26px 10px; position: sticky; top: 0; background: #fffbf8; z-index: 2; border-bottom: 1px solid rgba(255,180,200,0.3); }
+        .modal {
+          background: #fffbf8; border-radius: 22px;
+          width: min(760px, 96vw); max-height: 88vh;
+          overflow-y: auto;
+          box-shadow: 0 24px 70px rgba(255,107,157,0.2), 0 8px 20px rgba(0,0,0,0.12);
+          animation: slideUp 0.22s ease;
+          border: 1px solid rgba(255,180,200,0.5);
+        }
+        @keyframes slideUp {
+          from { transform: translateY(28px); opacity: 0; }
+          to   { transform: translateY(0);    opacity: 1; }
+        }
+        .modal-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 22px 26px 10px;
+          position: sticky; top: 0; background: #fffbf8;
+          z-index: 2; border-bottom: 1px solid rgba(255,180,200,0.3);
+        }
         .modal-title { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 600; color: #4a2838; }
         .modal-subtitle { font-family: 'Patrick Hand', cursive; font-size: 13px; color: #b06080; padding: 8px 26px 4px; }
         .modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #c07090; padding: 4px 8px; border-radius: 10px; }
         .modal-close:hover { background: rgba(255,180,200,0.3); }
         .modal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; padding: 16px 24px 28px; }
-
-        .theme-card { display: flex; flex-direction: column; align-items: center; gap: 8px; background: none; border: 2.5px solid transparent; border-radius: 16px; padding: 8px; cursor: pointer; transition: border-color 0.15s, transform 0.15s; position: relative; }
+        .theme-card {
+          display: flex; flex-direction: column; align-items: center; gap: 8px;
+          background: none; border: 2.5px solid transparent;
+          border-radius: 16px; padding: 8px; cursor: pointer;
+          transition: border-color 0.15s, transform 0.15s;
+          position: relative;
+        }
         .theme-card:hover { border-color: #ffb0c8; transform: translateY(-3px) scale(1.03); }
         .theme-card.selected { border-color: #ff6b9d; box-shadow: 0 0 0 3px rgba(255,107,157,0.18); }
         .theme-preview-wrap { width: 100%; aspect-ratio: 4/3; border-radius: 10px; border: 1px solid rgba(0,0,0,0.07); overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; padding: 8px; background-size: cover; }
@@ -1326,13 +1142,63 @@ export default function App() {
         .theme-card-label { font-family: 'Patrick Hand', cursive; font-size: 11px; color: #4a2838; text-align: center; line-height: 1.4; }
         .theme-check { position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; background: linear-gradient(135deg,#ff85a2,#ff6b9d); color: white; border-radius: 50%; font-size: 11px; display: flex; align-items: center; justify-content: center; }
 
-        .notif { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: rgba(60,10,30,0.92); color: #ffeaf4; font-family: 'Patrick Hand', cursive; font-size: 14px; padding: 11px 24px; border-radius: 30px; box-shadow: 0 4px 24px rgba(255,107,157,0.35); z-index: 3000; white-space: nowrap; pointer-events: none; animation: notifIn 0.3s ease, notifOut 0.4s ease 3.1s forwards; }
-        @keyframes notifIn  { from { opacity: 0; transform: translateX(-50%) translateY(14px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        .notif {
+          position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+          background: rgba(60,10,30,0.92); color: #ffeaf4;
+          font-family: 'Patrick Hand', cursive; font-size: 14px;
+          padding: 11px 24px; border-radius: 30px;
+          box-shadow: 0 4px 24px rgba(255,107,157,0.35);
+          z-index: 3000; white-space: nowrap; pointer-events: none;
+          animation: notifIn 0.3s ease, notifOut 0.4s ease 3.1s forwards;
+        }
+        @keyframes notifIn { from { opacity: 0; transform: translateX(-50%) translateY(14px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         @keyframes notifOut { from { opacity: 1; } to { opacity: 0; transform: translateX(-50%) translateY(14px); } }
+
+        /* GIF Picker */
+        .gif-picker {
+          padding: 0;
+          display: flex; flex-direction: column;
+          max-height: 340px;
+        }
+        .gif-search-row { margin-bottom: 8px; }
+        .gif-search-input {
+          width: 100%; padding: 7px 12px;
+          background: rgba(255,240,248,0.8);
+          border: 1.5px solid rgba(255,180,210,0.4);
+          border-radius: 12px; outline: none;
+          font-family: 'Patrick Hand', cursive; font-size: 13px;
+          color: #4a2838; transition: border-color 0.15s;
+        }
+        .gif-search-input:focus { border-color: #ff85a2; }
+        .quick-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+        .quick-tag {
+          padding: 2px 8px; background: rgba(255,240,248,0.8);
+          border: 1px solid rgba(255,180,210,0.4);
+          border-radius: 10px; font-size: 11px;
+          font-family: 'Patrick Hand', cursive; color: #a07888;
+          cursor: pointer; transition: all 0.12s;
+        }
+        .quick-tag:hover { background: rgba(255,210,230,0.4); color: #8b4060; }
+        .gif-loading {
+          text-align: center; padding: 20px;
+          color: #c080a0; font-family: 'Patrick Hand', cursive; font-size: 13px;
+        }
+        .gif-grid {
+          display: grid; grid-template-columns: repeat(4, 1fr);
+          gap: 4px; overflow-y: auto; flex: 1;
+        }
+        .gif-thumb {
+          width: 100%; aspect-ratio: 1; object-fit: cover;
+          border-radius: 6px; cursor: pointer;
+          transition: transform 0.1s, box-shadow 0.1s;
+          display: block;
+        }
+        .gif-thumb:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(255,107,157,0.3); }
+
       `}</style>
 
       <div className="toolbar">
-        <span className="toolbar-title">📓 shared notebook</span>
+        <span className="toolbar-title">shared notebook</span>
         <span className="live-badge">● {liveUsers} online</span>
 
         <div className="toolbar-divider" />
@@ -1357,23 +1223,20 @@ export default function App() {
         <div className="media-btn-wrap">
           <button className={`tb-btn${showStickerPicker ? " active" : ""}`}
             onClick={(e) => { e.stopPropagation(); closeAllPickers(); setShowStickerPicker((v) => !v); }}>
-            🩷 Stickers
+            Stickers & GIFs
           </button>
-          {showStickerPicker && <StickerPicker onSelect={(s) => placeSticker(s, "sticker")} onClose={() => setShowStickerPicker(false)} />}
-        </div>
-
-        <div className="media-btn-wrap">
-          <button className={`tb-btn${showGifPicker ? " active" : ""}`}
-            onClick={(e) => { e.stopPropagation(); closeAllPickers(); setShowGifPicker((v) => !v); }}>
-            🎞️ GIFs
-          </button>
-          {showGifPicker && <GifPicker onSelect={(url) => placeSticker(url, "gif")} onClose={() => setShowGifPicker(false)} />}
+          {showStickerPicker && (
+            <StickerGifPicker
+              onPlace={handlePlaceMedia}
+              onClose={() => { setShowStickerPicker(false); setPendingMediaPos(null); }}
+            />
+          )}
         </div>
 
         <div className="toolbar-divider" />
         <div className="page-btns">
           <button className="tb-btn primary" onClick={(e) => { e.stopPropagation(); setShowThemeModal(true); }}>
-            🌸 Change Page
+            Change Page
           </button>
           <button className="tb-btn"
             onClick={async (e) => {
@@ -1382,7 +1245,7 @@ export default function App() {
               setExtraHeight(newH);
               await supabase.from("page_settings").upsert({ id: PAGE_THEME_ROW_ID, theme_id: pageThemeId, changed_by: MY_NAME, extra_height: newH, updated_at: new Date().toISOString() });
             }}>
-            📄 Add Page
+            Add Page
           </button>
         </div>
       </div>
@@ -1396,29 +1259,46 @@ export default function App() {
           <PageDecorations emojis={pageTheme.overlayEmojis} themeId={pageThemeId} />
 
           {writings.map((w) => (
-            <WritingNode key={w.id} writing={w} isEditing={editingId === w.id}
-              onDelete={handleDelete} onDragEnd={handleDragEnd} pageRef={pageRef} />
+            <WritingNode
+              key={w.id} writing={w}
+              isEditing={editingId === w.id}
+              onStartEdit={(id) => setEditingId(id)}
+              onDelete={handleDelete}
+              onDragEnd={handleDragEnd}
+              pageRef={pageRef}
+            />
           ))}
 
-          {stickers.map((s) => (
-            <StickerNode key={s.id} sticker={s}
-              onDelete={handleStickerDelete} onDragEnd={handleStickerDragEnd} onResize={handleStickerResize} pageRef={pageRef} />
+          {mediaItems.map((m) => (
+            <MediaNode
+              key={m.id} item={m}
+              onDelete={handleMediaDelete}
+              onDragEnd={handleMediaDragEnd}
+              onResize={handleMediaResize}
+              pageRef={pageRef}
+            />
           ))}
 
           {activeInput && (
             <div className="active-input-wrapper"
               style={{ left:`${(activeInput.x/100)*(pageRef.current?.offsetWidth||900)}px`, top:`${(activeInput.y/100)*(pageRef.current?.scrollHeight||600)}px`, color:inkColor, fontFamily:inkFont }}>
-              <input ref={inputRef} className="active-input" value={inputText}
+              <input
+                ref={inputRef}
+                className="active-input"
+                value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={handleSubmit} placeholder="type & press Enter..."
-                style={{ color:inkColor, fontFamily:inkFont }} />
+                onKeyDown={handleSubmit}
+                placeholder="type & press Enter..."
+                style={{ color:inkColor, fontFamily:inkFont }}
+              />
             </div>
           )}
         </div>
       </div>
 
       {showThemeModal && (
-        <ThemeModal currentThemeId={pageThemeId}
+        <ThemeModal
+          currentThemeId={pageThemeId}
           onSelect={async (id) => {
             setTransitioning(true);
             setTimeout(() => { setPageThemeId(id); setTransitioning(false); }, 220);
