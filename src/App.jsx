@@ -1,3 +1,4 @@
+//first
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -118,13 +119,6 @@ const PAGE_THEMES = [
     overlayEmojis: ["🗻","❄️","🦢","🗻","☁️","🌨️","🦅","🗻","❄️","🌙","🦢","🗻"],
   },
   {
-    id: "oni", label: "鬼 Oni", emoji: "👹",
-    bodyBg: "#1a0808",
-    bodyBgImage: "radial-gradient(ellipse at 30% 40%, rgba(180,20,20,0.4) 0%, transparent 50%)",
-    style: { background: "#1a0808", backgroundImage: "radial-gradient(ellipse at 30% 40%, rgba(180,20,20,0.4) 0%, transparent 50%), repeating-linear-gradient(0deg, transparent, transparent 9px, rgba(255,50,50,0.04) 9px, rgba(255,50,50,0.04) 10px)" },
-    overlayEmojis: ["👹","🔥","👺","👹","💀","⛩️","🔥","👹","🗡️","💢","👺","🔥"], isDark: true,
-  },
-  {
     id: "mizuiro", label: "水色 Watercolor", emoji: "🎨",
     bodyBg: "#f0f8ff",
     bodyBgImage: "radial-gradient(ellipse at 20% 20%, rgba(150,200,255,0.3) 0%, transparent 40%), radial-gradient(ellipse at 80% 40%, rgba(255,150,200,0.2) 0%, transparent 35%), radial-gradient(ellipse at 40% 80%, rgba(150,255,200,0.2) 0%, transparent 40%)",
@@ -232,11 +226,14 @@ function FontPicker({ currentFont, onChange, onClose }) {
   );
 }
 
-// ─── GIF Picker (Giphy) ───────────────────────────────────────────────────
+// gif picker
 function GifPicker({ onSelect, onClose }) {
   const [query, setQuery] = useState("");
   const [gifs, setGifs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const lastQuery = useRef("");
   const ref = useRef(null);
   const debounceRef = useRef(null);
   useEffect(() => {
@@ -244,26 +241,32 @@ function GifPicker({ onSelect, onClose }) {
     setTimeout(() => document.addEventListener("mousedown", h), 10);
     return () => document.removeEventListener("mousedown", h);
   }, [onClose]);
-  const search = async (q) => {
+  const search = async (q, off = 0, append = false) => {
     if (!q.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=16&rating=g`);
+      const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=30&offset=${off}&rating=g`);
       const data = await res.json();
-      setGifs(data.data || []);
+      const results = data.data || [];
+      setGifs(prev => append ? [...prev, ...results] : results);
+      setHasMore(results.length === 30);
+      setOffset(off + results.length);
     } catch {
-      setGifs([]);
+      if (!append) setGifs([]);
     }
     setLoading(false);
   };
-  const searchTrending = async () => {
+  const searchTrending = async (off = 0, append = false) => {
     setLoading(true);
     try {
-      const res = await fetch(`https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_KEY}&limit=16&rating=g`);
+      const res = await fetch(`https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_KEY}&limit=30&offset=${off}&rating=g`);
       const data = await res.json();
-      setGifs(data.data || []);
+      const results = data.data || [];
+      setGifs(prev => append ? [...prev, ...results] : results);
+      setHasMore(results.length === 30);
+      setOffset(off + results.length);
     } catch {
-      setGifs([]);
+      if (!append) setGifs([]);
     }
     setLoading(false);
   };
@@ -271,12 +274,17 @@ function GifPicker({ onSelect, onClose }) {
   const handleChange = (e) => {
     const val = e.target.value;
     setQuery(val);
+    lastQuery.current = val;
     clearTimeout(debounceRef.current);
-    if (!val.trim()) { searchTrending(); return; }
-    debounceRef.current = setTimeout(() => search(val), 400);
+    if (!val.trim()) { setOffset(0); searchTrending(0, false); return; }
+    debounceRef.current = setTimeout(() => { setOffset(0); search(val, 0, false); }, 400);
   };
-  const handleKey = (e) => { if (e.key === "Enter") { clearTimeout(debounceRef.current); search(query); } };
-  const handleTag = (t) => { setQuery(t); search(t); };
+  const handleKey = (e) => { if (e.key === "Enter") { clearTimeout(debounceRef.current); setOffset(0); search(query, 0, false); } };
+  const handleTag = (t) => { setQuery(t); lastQuery.current = t; setOffset(0); search(t, 0, false); };
+  const handleLoadMore = () => {
+    if (lastQuery.current.trim()) search(lastQuery.current, offset, true);
+    else searchTrending(offset, true);
+  };
   return (
     <div ref={ref} className="gif-picker" onClick={(e) => e.stopPropagation()}>
       <p className="picker-label">Giphy GIFs</p>
@@ -311,12 +319,14 @@ function GifPicker({ onSelect, onClose }) {
           {gifs.length === 0 && <div className="gif-loading">no results</div>}
         </div>
       )}
+      {!loading && hasMore && (
+        <button className="gif-load-more" onClick={handleLoadMore}>load more~</button>
+      )}
       <p style={{ fontSize: 9, color: "#cca0b8", textAlign: "right", marginTop: 4, fontFamily: "'Patrick Hand', cursive" }}>Powered by GIPHY</p>
     </div>
   );
 }
 
-// ─── Sticker Picker ───────────────────────────────────────────────────────
 function StickerGifPicker({ onPlace, onClose }) {
   const [tab, setTab] = useState("stickers");
   const [stickerPack, setStickerPack] = useState(0);
@@ -385,7 +395,6 @@ function StickerGifPicker({ onPlace, onClose }) {
   );
 }
 
-// Sticker / GIF Node on the page
 function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
   const wrapRef = useRef(null);
   const dragging = useRef(false);
@@ -492,6 +501,8 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const hasDragged = useRef(false);
+  const resizing = useRef(false);
+  const resizeStart = useRef({ mouseX: 0, mouseY: 0, fontSize: 20 });
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
   useEffect(() => { onStartEditRef.current = onStartEdit; }, [onStartEdit]);
   useEffect(() => {
@@ -555,6 +566,31 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   };
+
+  const handleResizeDown = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    resizing.current = true;
+    const currentFontSize = parseFloat(window.getComputedStyle(ref.current).fontSize) || 20;
+    resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, fontSize: currentFontSize };
+    const onMove = (ev) => {
+      if (!resizing.current) return;
+      const dx = ev.clientX - resizeStart.current.mouseX;
+      const dy = ev.clientY - resizeStart.current.mouseY;
+      const delta = Math.sqrt(dx*dx + dy*dy) * (dx + dy > 0 ? 1 : -1);
+      const newSize = Math.max(10, Math.min(80, resizeStart.current.fontSize + delta * 0.3));
+      ref.current.style.fontSize = `${newSize}px`;
+    };
+    const onUp = () => {
+      resizing.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      const newSize = parseFloat(ref.current.style.fontSize) || 20;
+      supabase.from("writings").update({ font_size: Math.round(newSize) }).eq("id", writing.id);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
   return (
     <div
       ref={wrapRef}
@@ -572,10 +608,12 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
         onKeyDown={(e) => { if (e.key === "Escape") ref.current.blur(); }}
         onBlur={handleBlur}
         spellCheck={false}
+        style={{ fontSize: writing.font_size ? `${writing.font_size}px` : "20px" }}
       >
         {writing.content}
       </div>
       <button className="delete-btn" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(writing.id); }}>×</button>
+      <div className="resize-handle-text" onMouseDown={handleResizeDown} title="drag to resize">⤡</div>
     </div>
   );
 }
@@ -617,7 +655,7 @@ function Notification({ message, onDone }) {
   return <div className="notif">{message}</div>;
 }
 
-// ─── Main App ─────────────────────────────────────────────────────────────
+// main app
 export default function App() {
   const [writings, setWritings]           = useState([]);
   const [mediaItems, setMediaItems]       = useState([]);
@@ -932,7 +970,7 @@ export default function App() {
           padding: 3px 7px; background: none;
           border: 1px solid rgba(255,180,210,0.4);
           border-radius: 8px; font-size: 14px;
-          cursor: pointer; transition: all 0.12s;
+          cursor: pointer; transition: all 0.12px;
         }
         .sp-pack-tab:hover { background: rgba(255,210,230,0.3); transform: scale(1.1); }
         .sp-pack-tab.active { background: linear-gradient(135deg,#ff85a2,#ff6b9d); border-color: transparent; }
@@ -1041,11 +1079,22 @@ export default function App() {
         .font-option.active { border-color: #ff85a2; background: rgba(255,210,230,0.2); }
 
         /* Page */
-        .page-wrapper { position: relative; width: 100%; min-height: 80vh; }
+        .page-wrapper {
+          position: relative;
+          width: 100%;
+          min-height: 80vh;
+        }
         .notebook-page {
-          position: relative; width: 100%; min-height: 100vh;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.07), 0 10px 40px rgba(0,0,0,0.12), 4px 0 0 rgba(0,0,0,0.06), -2px 0 0 rgba(255,255,255,0.4);
-          cursor: crosshair; overflow: hidden;
+          position: relative;
+          width: 100%;
+          min-height: 100vh;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.07),
+                      0 10px 40px rgba(0,0,0,0.12),
+                      4px 0 0 rgba(0,0,0,0.06),
+                      -2px 0 0 rgba(255,255,255,0.4);
+          cursor: crosshair;
+          overflow-x: clip;
+          overflow-y: visible;
           transition: opacity 0.22s ease, filter 0.22s ease;
           padding-bottom: 200px;
         }
@@ -1058,6 +1107,18 @@ export default function App() {
           user-select: none; max-width: min(380px, calc(100% - 20px));
         }
         .writing-node.editing { cursor: text; }
+        .writing-node .resize-handle-text {
+          position: absolute; bottom: -8px; right: -8px;
+          width: 16px; height: 16px;
+          background: linear-gradient(135deg, #ff85a2, #ff6b9d);
+          border-radius: 50%; cursor: se-resize;
+          opacity: 0; transition: opacity 0.15s;
+          border: 2px solid white;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+          z-index: 21; display: flex; align-items: center;
+          justify-content: center; font-size: 8px; color: white;
+        }
+        .writing-node:hover .resize-handle-text { opacity: 1; }
         .writing-node-text {
           display: block; font-size: 20px; line-height: 1.4;
           white-space: pre-wrap; word-break: break-word;
@@ -1194,6 +1255,15 @@ export default function App() {
           display: block;
         }
         .gif-thumb:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(255,107,157,0.3); }
+        .gif-load-more {
+          width: 100%; margin-top: 6px; padding: 6px;
+          background: rgba(255,240,248,0.8);
+          border: 1.5px solid rgba(255,180,210,0.4);
+          border-radius: 12px; cursor: pointer;
+          font-family: 'Patrick Hand', cursive; font-size: 12px;
+          color: #a07888; transition: all 0.15s; flex-shrink: 0;
+        }
+        .gif-load-more:hover { background: rgba(255,210,230,0.4); color: #8b4060; }
 
       `}</style>
 
@@ -1228,7 +1298,7 @@ export default function App() {
           {showStickerPicker && (
             <StickerGifPicker
               onPlace={handlePlaceMedia}
-              onClose={() => { setShowStickerPicker(false); setPendingMediaPos(null); }}
+              onClose={() => { setShowStickerPicker(false); }}
             />
           )}
         </div>
