@@ -1,12 +1,11 @@
-//first
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = "https://cvchsjpvszyeryrfffek.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2Y2hzanB2c3p5ZXJ5cmZmZmVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0NDk1NTUsImV4cCI6MjA4NzAyNTU1NX0.L2ckyzW9bs88_JTNwesk5Bz7LNYrYRr2-Y9ywoTINjU";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 const GIPHY_KEY = import.meta.env.VITE_GIPHY;
+const SUPABASE_URL=import.meta.env.VITE_URL;
+const SUPABASE_ANON_KEY=import.meta.env.VITE_ANON;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const ADJECTIVES = ["Amber","Azure","Breezy","Calm","Coral","Gentle","Golden","Happy","Jolly","Lemon","Mellow","Misty","Pastel","Quiet","Rosy","Sage","Silky","Sleepy","Sunny","Teal","Velvet","Wispy"];
 const ANIMALS = ["Bunny","Cat","Crane","Deer","Duck","Fox","Hedgehog","Koala","Otter","Owl","Panda","Penguin","Seal","Sloth","Sparrow","Swan","Wren"];
@@ -549,6 +548,7 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
       const pageRect = pageRef.current.getBoundingClientRect();
       wrapRef.current.style.left = `${ev.clientX - pageRect.left - dragOffset.current.x}px`;
       wrapRef.current.style.top  = `${ev.clientY - pageRect.top  - dragOffset.current.y}px`;
+      
     };
     const onUp = (ev) => {
       if (!dragging.current) return;
@@ -826,25 +826,29 @@ export default function App() {
     setWritings((prev) => prev.map((w) => w.id === id ? { ...w, position_x: clampedX, position_y: clampedY } : w));
     await supabase.from("writings").update({ position_x: clampedX, position_y: clampedY }).eq("id", id);
   };
+const handlePlaceMedia = useCallback(async ({ type, content }) => {
+  const page = pageRef.current;
+  const pageRect = page.getBoundingClientRect();
+  
+  // same coordinate system as writings
+  const centerXpx = page.offsetWidth / 2;
+  const centerYpx = (window.innerHeight / 2 - pageRect.top) / pageRect.height * 100;
+  
+  const x = centerXpx - 40;
+  const y = (centerYpx / 100) * page.scrollHeight - 40;
 
-  // Place a media item (emoji or gif) in center of current viewport
-  const handlePlaceMedia = useCallback(async ({ type, content }) => {
-    const pageRect = pageRef.current?.getBoundingClientRect();
-    const scrollY  = window.scrollY;
-    const x = (pageRef.current?.offsetWidth || 900) / 2 - 40;
-    const y = (scrollY - (pageRect?.top ?? 0) + window.scrollY + window.innerHeight / 2) - 40;
-    const defaultSize = type === "emoji" ? 64 : 120;
-    const item = {
-      media_type:  type,
-      content:     content,
-      position_x:  Math.max(0, x),
-      position_y:  Math.max(20, y),
-      size:        defaultSize,
-    };
-    const { data } = await supabase.from("media_items").insert([item]).select().single();
-    if (data) setMediaItems((prev) => [...prev, data]);
-    setShowStickerPicker(false);
-  }, []);
+  const defaultSize = type === "emoji" ? 64 : 120;
+  const item = {
+    media_type:  type,
+    content:     content,
+    position_x:  Math.max(0, x),
+    position_y:  Math.max(20, y),
+    size:        defaultSize,
+  };
+  const { data } = await supabase.from("media_items").insert([item]).select().single();
+  if (data) setMediaItems((prev) => [...prev, data]);
+  setShowStickerPicker(false);
+}, []);
 
   const handleMediaDelete = async (id) => {
     setMediaItems((prev) => prev.filter((m) => m.id !== id));
@@ -886,16 +890,19 @@ export default function App() {
         }
 
         .toolbar {
-          display: flex; align-items: center; gap: 12px;
-          margin-bottom: 20px;
-          background: rgba(255,255,255,0.9);
-          border: 1px solid rgba(255,180,210,0.5);
-          border-radius: 40px; padding: 0 20px;
-          height: 52px;
-          box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-          flex-wrap: nowrap; justify-content: center;
-          position: relative; z-index: 1000; overflow: visible;
-        }
+        display: flex; align-items: center; gap: 12px;
+        margin-bottom: 20px;
+        background: rgba(255,255,255,0.9);
+        border: 1px solid rgba(255,180,210,0.5);
+        border-radius: 40px; padding: 0 20px;
+        height: 52px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        flex-wrap: nowrap; justify-content: center;
+        position: sticky;      
+        top: 16px;             
+        z-index: 1000; overflow: visible;
+        backdrop-filter: blur(8px);   
+      }
         .toolbar-title { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 600; color: #4a2838; letter-spacing: -0.5px; white-space: nowrap; }
         .live-badge { background: linear-gradient(135deg,#ff85a2,#ff6b9d); color: white; font-size: 11px; font-family: 'Patrick Hand', cursive; padding: 0 10px; border-radius: 20px; height: 22px; display: flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
         .toolbar-divider { width: 1px; height: 20px; background: rgba(255,160,200,0.35); flex-shrink: 0; }
@@ -1381,3 +1388,4 @@ export default function App() {
     </>
   );
 }
+
