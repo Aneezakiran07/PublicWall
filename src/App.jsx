@@ -2,14 +2,11 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const GIPHY_KEY = import.meta.env.VITE_GIPHY;
-const SUPABASE_URL=import.meta.env.VITE_URL;
-const SUPABASE_ANON_KEY=import.meta.env.VITE_ANON;
+const SUPABASE_URL = import.meta.env.VITE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_ANON;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const ADJECTIVES = ["Amber","Azure","Breezy","Calm","Coral","Gentle","Golden","Happy","Jolly","Lemon","Mellow","Misty","Pastel","Quiet","Rosy","Sage","Silky","Sleepy","Sunny","Teal","Velvet","Wispy"];
-const ANIMALS = ["Bunny","Cat","Crane","Deer","Duck","Fox","Hedgehog","Koala","Otter","Owl","Panda","Penguin","Seal","Sloth","Sparrow","Swan","Wren"];
-const MY_NAME = `${ADJECTIVES[Math.floor(Math.random()*ADJECTIVES.length)]} ${ANIMALS[Math.floor(Math.random()*ANIMALS.length)]}`;
 const PAGE_THEME_ROW_ID = "global-page-theme";
 
 const FONTS = [
@@ -225,7 +222,6 @@ function FontPicker({ currentFont, onChange, onClose }) {
   );
 }
 
-// gif picker
 function GifPicker({ onSelect, onClose }) {
   const [query, setQuery] = useState("");
   const [gifs, setGifs] = useState([]);
@@ -348,7 +344,6 @@ function StickerGifPicker({ onPlace, onClose }) {
         <button className={`sp-tab${tab==="stickers"?" active":""}`} onClick={() => setTab("stickers")}>Stickers</button>
         <button className={`sp-tab${tab==="gifs"?" active":""}`} onClick={() => setTab("gifs")}>GIFs</button>
       </div>
-
       {tab === "stickers" && (
         <>
           <div className="sp-search-row">
@@ -383,7 +378,6 @@ function StickerGifPicker({ onPlace, onClose }) {
           </div>
         </>
       )}
-
       {tab === "gifs" && (
         <GifPicker
           onSelect={(url) => { onPlace({ type: "gif", content: url }); onClose(); }}
@@ -528,8 +522,7 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
     if (!text) {
       onDelete(writing.id);
     } else {
-      supabase.from("writings").update({ content: text }).eq("id", writing.id)
-        .then(({ error }) => console.log("SAVE RESULT:", error || "success"));
+      supabase.from("writings").update({ content: text }).eq("id", writing.id);
     }
   };
   const handleMouseDown = (e) => {
@@ -548,7 +541,6 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
       const pageRect = pageRef.current.getBoundingClientRect();
       wrapRef.current.style.left = `${ev.clientX - pageRect.left - dragOffset.current.x}px`;
       wrapRef.current.style.top  = `${ev.clientY - pageRect.top  - dragOffset.current.y}px`;
-      
     };
     const onUp = (ev) => {
       if (!dragging.current) return;
@@ -626,7 +618,7 @@ function ThemeModal({ currentThemeId, onSelect, onClose }) {
           <span className="modal-title">ページのテーマ · Page Theme</span>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        <p className="modal-subtitle">かわいい Japanese styles, Change Theme for everyone</p>
+        <p className="modal-subtitle">かわいい Japanese styles · changes for everyone</p>
         <div className="modal-grid">
           {PAGE_THEMES.map((t) => (
             <button key={t.id} className={`theme-card${currentThemeId===t.id?" selected":""}`}
@@ -650,29 +642,54 @@ function ThemeModal({ currentThemeId, onSelect, onClose }) {
   );
 }
 
-function Notification({ message, onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 3500); return () => clearTimeout(t); }, [onDone]);
-  return <div className="notif">{message}</div>;
+// ─── Online Badge (Supabase Realtime Presence — reuses existing WS, zero extra polling) ───
+function useOnlineCount() {
+  const [count, setCount] = useState(1);
+  useEffect(() => {
+    const channel = supabase.channel("online-users", {
+      config: { presence: { key: crypto.randomUUID() } },
+    });
+    channel
+      .on("presence", { event: "sync" }, () => {
+        setCount(Object.keys(channel.presenceState()).length);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ online_at: new Date().toISOString() });
+        }
+      });
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+  return count;
 }
 
-// main app
+function OnlineBadge({ count }) {
+  return (
+    <div className="online-badge" title={`${count} ${count === 1 ? "person" : "people"} online`}>
+      <span className="online-dot" />
+      <span className="online-count">{count} online</span>
+    </div>
+  );
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function App() {
-  const [writings, setWritings]           = useState([]);
-  const [mediaItems, setMediaItems]       = useState([]);
-  const [activeInput, setActiveInput]     = useState(null);
-  const [inputText, setInputText]         = useState("");
-  const [editingId, setEditingId]         = useState(null);
-  const [inkColor, setInkColor]           = useState("#1a1a2e");
-  const [inkFont,  setInkFont]            = useState(FONTS[0].value);
+  const [writings, setWritings]               = useState([]);
+  const [mediaItems, setMediaItems]           = useState([]);
+  const [activeInput, setActiveInput]         = useState(null);
+  const [inputText, setInputText]             = useState("");
+  const [editingId, setEditingId]             = useState(null);
+  const [inkColor, setInkColor]               = useState("#1a1a2e");
+  const [inkFont,  setInkFont]                = useState(FONTS[0].value);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showFontPicker,  setShowFontPicker]  = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
-  const [pageThemeId, setPageThemeId]     = useState("sakura");
+  const [pageThemeId, setPageThemeId]         = useState("sakura");
   const [showThemeModal, setShowThemeModal]   = useState(false);
-  const [notification, setNotification]   = useState(null);
-  const [transitioning, setTransitioning] = useState(false);
-  const [extraHeight, setExtraHeight]     = useState(0);
-  const [liveUsers, setLiveUsers]         = useState(0);
+  const [transitioning, setTransitioning]     = useState(false);
+  const [extraHeight, setExtraHeight]         = useState(0);
+
+  const onlineCount = useOnlineCount();
 
   const pageRef        = useRef(null);
   const inputRef       = useRef(null);
@@ -720,62 +737,24 @@ export default function App() {
       .then(({ data, error }) => {
         if (data?.theme_id) setPageThemeId(data.theme_id);
         if (data?.extra_height != null) setExtraHeight(data.extra_height);
-        if (!data) {
-          supabase.from("page_settings").insert({ id: PAGE_THEME_ROW_ID, theme_id: "sakura", changed_by: MY_NAME, extra_height: 0 });
+        if (!data && error?.code === "PGRST116") {
+          supabase.from("page_settings").insert({
+            id: PAGE_THEME_ROW_ID,
+            theme_id: "sakura",
+            extra_height: 0,
+          });
         }
       });
-  }, []);
-
-  // Realtime
-  useEffect(() => {
-    const channel = supabase
-      .channel("writings-room")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "writings" }, ({ new: row }) => {
-        setWritings((prev) => prev.some((w) => w.id === row.id) ? prev : [...prev, row]);
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "writings" }, ({ new: row }) => {
-        setWritings((prev) => prev.map((w) => w.id === row.id ? { ...w, ...row } : w));
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "writings" }, ({ old: row }) => {
-        setWritings((prev) => prev.filter((w) => w.id !== row.id));
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "media_items" }, ({ new: row }) => {
-        setMediaItems((prev) => prev.some((m) => m.id === row.id) ? prev : [...prev, row]);
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "media_items" }, ({ new: row }) => {
-        setMediaItems((prev) => prev.map((m) => m.id === row.id ? { ...m, ...row } : m));
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "media_items" }, ({ old: row }) => {
-        setMediaItems((prev) => prev.filter((m) => m.id !== row.id));
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "page_settings" }, ({ new: row }) => {
-        if (row?.theme_id && row?.id === PAGE_THEME_ROW_ID) {
-          setTransitioning(true);
-          setTimeout(() => { setPageThemeId(row.theme_id); setTransitioning(false); }, 220);
-          if (row.extra_height !== undefined) setExtraHeight(row.extra_height);
-          if (row.changed_by && row.changed_by !== MY_NAME) {
-            const label = PAGE_THEMES.find((t) => t.id === row.theme_id)?.label || row.theme_id;
-            setNotification(`${row.changed_by} changed the page to ${label} ✨`);
-          }
-        }
-      })
-      .on("presence", { event: "sync" }, () => {
-        setLiveUsers(Object.keys(channel.presenceState()).length);
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") await channel.track({ joined_at: Date.now() });
-      });
-    return () => supabase.removeChannel(channel);
   }, []);
 
   // Click handler
   useEffect(() => {
     const handler = (e) => {
       if (!pageRef.current?.contains(e.target)) return;
-      const node        = e.target.closest("[data-id]");
-      const toolbar     = e.target.closest(".toolbar");
-      const deleteBtn   = e.target.closest(".delete-btn");
-      const mediaNode   = e.target.closest(".media-node");
+      const node          = e.target.closest("[data-id]");
+      const toolbar       = e.target.closest(".toolbar");
+      const deleteBtn     = e.target.closest(".delete-btn");
+      const mediaNode     = e.target.closest(".media-node");
       const stickerPicker = e.target.closest(".sticker-picker, .gif-picker");
       if (toolbar || deleteBtn || mediaNode || stickerPicker) return;
       if (node) {
@@ -826,29 +805,26 @@ export default function App() {
     setWritings((prev) => prev.map((w) => w.id === id ? { ...w, position_x: clampedX, position_y: clampedY } : w));
     await supabase.from("writings").update({ position_x: clampedX, position_y: clampedY }).eq("id", id);
   };
-const handlePlaceMedia = useCallback(async ({ type, content }) => {
-  const page = pageRef.current;
-  const pageRect = page.getBoundingClientRect();
-  
-  // same coordinate system as writings
-  const centerXpx = page.offsetWidth / 2;
-  const centerYpx = (window.innerHeight / 2 - pageRect.top) / pageRect.height * 100;
-  
-  const x = centerXpx - 40;
-  const y = (centerYpx / 100) * page.scrollHeight - 40;
 
-  const defaultSize = type === "emoji" ? 64 : 120;
-  const item = {
-    media_type:  type,
-    content:     content,
-    position_x:  Math.max(0, x),
-    position_y:  Math.max(20, y),
-    size:        defaultSize,
-  };
-  const { data } = await supabase.from("media_items").insert([item]).select().single();
-  if (data) setMediaItems((prev) => [...prev, data]);
-  setShowStickerPicker(false);
-}, []);
+  const handlePlaceMedia = useCallback(async ({ type, content }) => {
+    const page = pageRef.current;
+    const pageRect = page.getBoundingClientRect();
+    const centerXpx = page.offsetWidth / 2;
+    const centerYpx = (window.innerHeight / 2 - pageRect.top) / pageRect.height * 100;
+    const x = centerXpx - 40;
+    const y = (centerYpx / 100) * page.scrollHeight - 40;
+    const defaultSize = type === "emoji" ? 64 : 120;
+    const item = {
+      media_type:  type,
+      content:     content,
+      position_x:  Math.max(0, x),
+      position_y:  Math.max(20, y),
+      size:        defaultSize,
+    };
+    const { data } = await supabase.from("media_items").insert([item]).select().single();
+    if (data) setMediaItems((prev) => [...prev, data]);
+    setShowStickerPicker(false);
+  }, []);
 
   const handleMediaDelete = async (id) => {
     setMediaItems((prev) => prev.filter((m) => m.id !== id));
@@ -865,11 +841,9 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
 
   const handleMediaResize = async (id, newSize) => {
     setMediaItems((prev) => prev.map((m) => m.id === id ? { ...m, size: newSize } : m));
-    const { error } = await supabase.from("media_items").update({ size: newSize }).eq("id", id);
-    if (error) console.error("resize save failed:", error.message, "— make sure the 'size' column exists: ALTER TABLE media_items ADD COLUMN IF NOT EXISTS size float default 120;");
+    await supabase.from("media_items").update({ size: newSize }).eq("id", id);
   };
 
-  // When sticker button clicked, capture current cursor position (center of page as fallback)
   const currentFontLabel = FONTS.find((f) => f.value === inkFont)?.label || "Caveat";
 
   return (
@@ -890,21 +864,19 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
         }
 
         .toolbar {
-        display: flex; align-items: center; gap: 12px;
-        margin-bottom: 20px;
-        background: rgba(255,255,255,0.9);
-        border: 1px solid rgba(255,180,210,0.5);
-        border-radius: 40px; padding: 0 20px;
-        height: 52px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-        flex-wrap: nowrap; justify-content: center;
-        position: sticky;      
-        top: 16px;             
-        z-index: 1000; overflow: visible;
-        backdrop-filter: blur(8px);   
-      }
+          display: flex; align-items: center; gap: 12px;
+          margin-bottom: 20px;
+          background: rgba(255,255,255,0.9);
+          border: 1px solid rgba(255,180,210,0.5);
+          border-radius: 40px; padding: 0 20px;
+          height: 52px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+          flex-wrap: nowrap; justify-content: center;
+          position: sticky; top: 16px;
+          z-index: 1000; overflow: visible;
+          backdrop-filter: blur(8px);
+        }
         .toolbar-title { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 600; color: #4a2838; letter-spacing: -0.5px; white-space: nowrap; }
-        .live-badge { background: linear-gradient(135deg,#ff85a2,#ff6b9d); color: white; font-size: 11px; font-family: 'Patrick Hand', cursive; padding: 0 10px; border-radius: 20px; height: 22px; display: flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
         .toolbar-divider { width: 1px; height: 20px; background: rgba(255,160,200,0.35); flex-shrink: 0; }
         .toolbar-label { font-size: 11px; color: #c0909c; font-family: 'Patrick Hand', cursive; white-space: nowrap; }
 
@@ -933,19 +905,38 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
         .media-btn-wrap { position: relative; overflow: visible; display: flex; align-items: center; }
         .page-btns      { display: flex; align-items: center; gap: 6px; }
 
-        /* Sticker / GIF Picker */
+        /* ── Online Badge ── */
+        .online-badge {
+          display: flex; align-items: center; gap: 5px;
+          padding: 4px 10px;
+          background: rgba(240,255,245,0.9);
+          border: 1.5px solid rgba(100,220,140,0.45);
+          border-radius: 20px; flex-shrink: 0; cursor: default;
+        }
+        .online-dot {
+          width: 7px; height: 7px; border-radius: 50%;
+          background: #34d058;
+          box-shadow: 0 0 0 2px rgba(52,208,88,0.25);
+          animation: pulse-dot 2s ease-in-out infinite;
+          flex-shrink: 0;
+        }
+        @keyframes pulse-dot {
+          0%, 100% { box-shadow: 0 0 0 2px rgba(52,208,88,0.25); }
+          50%       { box-shadow: 0 0 0 4px rgba(52,208,88,0.15); }
+        }
+        .online-count {
+          font-family: 'Patrick Hand', cursive;
+          font-size: 12px; color: #2a7a40; white-space: nowrap;
+        }
+
         .sticker-picker {
-          position: absolute;
-          top: calc(100% + 10px);
+          position: absolute; top: calc(100% + 10px);
           left: 50%; transform: translateX(-50%);
           background: #fffbf8;
           border: 1px solid rgba(255,180,210,0.5);
-          border-radius: 18px;
-          padding: 14px;
+          border-radius: 18px; padding: 14px;
           box-shadow: 0 16px 48px rgba(255,107,157,0.2), 0 4px 12px rgba(0,0,0,0.1);
-          z-index: 9999;
-          width: 320px;
-          max-height: 400px;
+          z-index: 9999; width: 320px; max-height: 400px;
           display: flex; flex-direction: column;
           animation: popIn 0.15s ease;
         }
@@ -954,8 +945,7 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
           flex: 1; padding: 6px 0;
           background: none; border: 1.5px solid rgba(255,180,210,0.4);
           border-radius: 12px; font-family: 'Patrick Hand', cursive;
-          font-size: 13px; color: #a07888; cursor: pointer;
-          transition: all 0.15s;
+          font-size: 13px; color: #a07888; cursor: pointer; transition: all 0.15s;
         }
         .sp-tab:hover { background: rgba(255,210,230,0.3); }
         .sp-tab.active { background: linear-gradient(135deg,#ff85a2,#ff6b9d); color: white; border-color: transparent; }
@@ -969,22 +959,15 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
           color: #4a2838; transition: border-color 0.15s;
         }
         .sp-search:focus { border-color: #ff85a2; }
-        .sp-pack-tabs {
-          display: flex; flex-wrap: wrap; gap: 4px;
-          margin-bottom: 8px; flex-shrink: 0;
-        }
+        .sp-pack-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; flex-shrink: 0; }
         .sp-pack-tab {
           padding: 3px 7px; background: none;
           border: 1px solid rgba(255,180,210,0.4);
-          border-radius: 8px; font-size: 14px;
-          cursor: pointer; transition: all 0.12px;
+          border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.12px;
         }
         .sp-pack-tab:hover { background: rgba(255,210,230,0.3); transform: scale(1.1); }
         .sp-pack-tab.active { background: linear-gradient(135deg,#ff85a2,#ff6b9d); border-color: transparent; }
-        .sp-grid {
-          display: grid; grid-template-columns: repeat(8, 1fr);
-          gap: 3px; overflow-y: auto; flex: 1;
-        }
+        .sp-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; overflow-y: auto; flex: 1; }
         .sp-emoji-btn {
           aspect-ratio: 1; border: none; background: none;
           font-size: 20px; cursor: pointer; border-radius: 8px;
@@ -993,45 +976,6 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
         }
         .sp-emoji-btn:hover { transform: scale(1.3); background: rgba(255,210,230,0.3); }
 
-        .sp-gif-grid {
-          display: grid; grid-template-columns: repeat(3, 1fr);
-          gap: 5px; overflow-y: auto; flex: 1;
-        }
-        .sp-gif-btn {
-          border: none; background: rgba(255,240,248,0.6);
-          border-radius: 8px; overflow: hidden;
-          cursor: pointer; aspect-ratio: 1;
-          padding: 0; transition: transform 0.1s, box-shadow 0.1s;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .sp-gif-btn:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(255,107,157,0.3); }
-        .sp-gif-btn img { width: 100%; height: 100%; object-fit: cover; }
-        .sp-gif-loading {
-          grid-column: 1/-1; display: flex; flex-direction: column;
-          align-items: center; justify-content: center;
-          padding: 20px; gap: 8px;
-          font-family: 'Patrick Hand', cursive; font-size: 13px; color: #c080a0;
-        }
-        .sp-spinner {
-          width: 24px; height: 24px;
-          border: 3px solid rgba(255,180,210,0.3);
-          border-top-color: #ff85a2;
-          border-radius: 50%;
-          animation: spin 0.6s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .sp-load-more {
-          width: 100%; margin-top: 8px; padding: 7px;
-          background: rgba(255,240,248,0.8);
-          border: 1.5px solid rgba(255,180,210,0.4);
-          border-radius: 12px; cursor: pointer;
-          font-family: 'Patrick Hand', cursive; font-size: 13px;
-          color: #a07888; transition: all 0.15s;
-          flex-shrink: 0;
-        }
-        .sp-load-more:hover { background: rgba(255,210,230,0.4); }
-
-        /* Media Nodes */
         .media-node {
           position: absolute; z-index: 10;
           cursor: grab; user-select: none;
@@ -1048,16 +992,12 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
           background: linear-gradient(135deg, #ff85a2, #ff6b9d);
           border-radius: 50%; cursor: se-resize;
           opacity: 0; transition: opacity 0.15s;
-          border: 2px solid white;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.25);
-          z-index: 21;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 10px; color: white; font-weight: bold;
-          line-height: 1;
+          border: 2px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+          z-index: 21; display: flex; align-items: center; justify-content: center;
+          font-size: 10px; color: white; font-weight: bold; line-height: 1;
         }
         .resize-handle:hover { transform: scale(1.2); opacity: 1 !important; }
 
-        /* Pickers */
         .picker-popup {
           position: absolute; top: calc(100% + 10px);
           left: 50%; transform: translateX(-50%);
@@ -1085,29 +1025,16 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
         .font-option:hover { background: rgba(255,210,230,0.3); }
         .font-option.active { border-color: #ff85a2; background: rgba(255,210,230,0.2); }
 
-        /* Page */
-        .page-wrapper {
-          position: relative;
-          width: 100%;
-          min-height: 80vh;
-        }
+        .page-wrapper { position: relative; width: 100%; min-height: 80vh; }
         .notebook-page {
-          position: relative;
-          width: 100%;
-          min-height: 100vh;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.07),
-                      0 10px 40px rgba(0,0,0,0.12),
-                      4px 0 0 rgba(0,0,0,0.06),
-                      -2px 0 0 rgba(255,255,255,0.4);
-          cursor: crosshair;
-          overflow-x: clip;
-          overflow-y: visible;
+          position: relative; width: 100%; min-height: 100vh;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.07), 0 10px 40px rgba(0,0,0,0.12), 4px 0 0 rgba(0,0,0,0.06), -2px 0 0 rgba(255,255,255,0.4);
+          cursor: crosshair; overflow-x: clip; overflow-y: visible;
           transition: opacity 0.22s ease, filter 0.22s ease;
           padding-bottom: 200px;
         }
         .notebook-page.transitioning { opacity: 0; filter: blur(8px); }
 
-        /* Writing nodes */
         .writing-node {
           position: absolute; z-index: 10;
           cursor: grab; animation: inkDrop 0.3s ease-out;
@@ -1120,8 +1047,7 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
           background: linear-gradient(135deg, #ff85a2, #ff6b9d);
           border-radius: 50%; cursor: se-resize;
           opacity: 0; transition: opacity 0.15s;
-          border: 2px solid white;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+          border: 2px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
           z-index: 21; display: flex; align-items: center;
           justify-content: center; font-size: 8px; color: white;
         }
@@ -1163,7 +1089,6 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
         }
         .active-input::placeholder { opacity: 0.5; font-size: 15px; }
 
-        /* Theme modal */
         .modal-backdrop {
           position: fixed; inset: 0;
           background: rgba(20,0,10,0.45);
@@ -1175,8 +1100,7 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .modal {
           background: #fffbf8; border-radius: 22px;
-          width: min(760px, 96vw); max-height: 88vh;
-          overflow-y: auto;
+          width: min(760px, 96vw); max-height: 88vh; overflow-y: auto;
           box-shadow: 0 24px 70px rgba(255,107,157,0.2), 0 8px 20px rgba(0,0,0,0.12);
           animation: slideUp 0.22s ease;
           border: 1px solid rgba(255,180,200,0.5);
@@ -1200,8 +1124,7 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
           display: flex; flex-direction: column; align-items: center; gap: 8px;
           background: none; border: 2.5px solid transparent;
           border-radius: 16px; padding: 8px; cursor: pointer;
-          transition: border-color 0.15s, transform 0.15s;
-          position: relative;
+          transition: border-color 0.15s, transform 0.15s; position: relative;
         }
         .theme-card:hover { border-color: #ffb0c8; transform: translateY(-3px) scale(1.03); }
         .theme-card.selected { border-color: #ff6b9d; box-shadow: 0 0 0 3px rgba(255,107,157,0.18); }
@@ -1210,24 +1133,7 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
         .theme-card-label { font-family: 'Patrick Hand', cursive; font-size: 11px; color: #4a2838; text-align: center; line-height: 1.4; }
         .theme-check { position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; background: linear-gradient(135deg,#ff85a2,#ff6b9d); color: white; border-radius: 50%; font-size: 11px; display: flex; align-items: center; justify-content: center; }
 
-        .notif {
-          position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
-          background: rgba(60,10,30,0.92); color: #ffeaf4;
-          font-family: 'Patrick Hand', cursive; font-size: 14px;
-          padding: 11px 24px; border-radius: 30px;
-          box-shadow: 0 4px 24px rgba(255,107,157,0.35);
-          z-index: 3000; white-space: nowrap; pointer-events: none;
-          animation: notifIn 0.3s ease, notifOut 0.4s ease 3.1s forwards;
-        }
-        @keyframes notifIn { from { opacity: 0; transform: translateX(-50%) translateY(14px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-        @keyframes notifOut { from { opacity: 1; } to { opacity: 0; transform: translateX(-50%) translateY(14px); } }
-
-        /* GIF Picker */
-        .gif-picker {
-          padding: 0;
-          display: flex; flex-direction: column;
-          max-height: 340px;
-        }
+        .gif-picker { padding: 0; display: flex; flex-direction: column; max-height: 340px; }
         .gif-search-row { margin-bottom: 8px; }
         .gif-search-input {
           width: 100%; padding: 7px 12px;
@@ -1247,19 +1153,12 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
           cursor: pointer; transition: all 0.12s;
         }
         .quick-tag:hover { background: rgba(255,210,230,0.4); color: #8b4060; }
-        .gif-loading {
-          text-align: center; padding: 20px;
-          color: #c080a0; font-family: 'Patrick Hand', cursive; font-size: 13px;
-        }
-        .gif-grid {
-          display: grid; grid-template-columns: repeat(4, 1fr);
-          gap: 4px; overflow-y: auto; flex: 1;
-        }
+        .gif-loading { text-align: center; padding: 20px; color: #c080a0; font-family: 'Patrick Hand', cursive; font-size: 13px; }
+        .gif-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; overflow-y: auto; flex: 1; }
         .gif-thumb {
           width: 100%; aspect-ratio: 1; object-fit: cover;
           border-radius: 6px; cursor: pointer;
-          transition: transform 0.1s, box-shadow 0.1s;
-          display: block;
+          transition: transform 0.1s, box-shadow 0.1s; display: block;
         }
         .gif-thumb:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(255,107,157,0.3); }
         .gif-load-more {
@@ -1271,12 +1170,13 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
           color: #a07888; transition: all 0.15s; flex-shrink: 0;
         }
         .gif-load-more:hover { background: rgba(255,210,230,0.4); color: #8b4060; }
-
       `}</style>
 
       <div className="toolbar">
         <span className="toolbar-title">shared notebook</span>
-        <span className="live-badge">● {liveUsers} online</span>
+
+        <div className="toolbar-divider" />
+        <OnlineBadge count={onlineCount} />
 
         <div className="toolbar-divider" />
         <span className="toolbar-label">Ink</span>
@@ -1305,7 +1205,7 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
           {showStickerPicker && (
             <StickerGifPicker
               onPlace={handlePlaceMedia}
-              onClose={() => { setShowStickerPicker(false); }}
+              onClose={() => setShowStickerPicker(false)}
             />
           )}
         </div>
@@ -1320,7 +1220,12 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
               e.stopPropagation();
               const newH = extraHeight + 600;
               setExtraHeight(newH);
-              await supabase.from("page_settings").upsert({ id: PAGE_THEME_ROW_ID, theme_id: pageThemeId, changed_by: MY_NAME, extra_height: newH, updated_at: new Date().toISOString() });
+              await supabase.from("page_settings").upsert({
+                id: PAGE_THEME_ROW_ID,
+                theme_id: pageThemeId,
+                extra_height: newH,
+                updated_at: new Date().toISOString(),
+              });
             }}>
             Add Page
           </button>
@@ -1358,7 +1263,11 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
 
           {activeInput && (
             <div className="active-input-wrapper"
-              style={{ left:`${(activeInput.x/100)*(pageRef.current?.offsetWidth||900)}px`, top:`${(activeInput.y/100)*(pageRef.current?.scrollHeight||600)}px`, color:inkColor, fontFamily:inkFont }}>
+              style={{
+                left: `${(activeInput.x / 100) * (pageRef.current?.offsetWidth || 900)}px`,
+                top:  `${(activeInput.y / 100) * (pageRef.current?.scrollHeight || 600)}px`,
+                color: inkColor, fontFamily: inkFont,
+              }}>
               <input
                 ref={inputRef}
                 className="active-input"
@@ -1366,7 +1275,7 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleSubmit}
                 placeholder="type & press Enter..."
-                style={{ color:inkColor, fontFamily:inkFont }}
+                style={{ color: inkColor, fontFamily: inkFont }}
               />
             </div>
           )}
@@ -1379,13 +1288,16 @@ const handlePlaceMedia = useCallback(async ({ type, content }) => {
           onSelect={async (id) => {
             setTransitioning(true);
             setTimeout(() => { setPageThemeId(id); setTransitioning(false); }, 220);
-            await supabase.from("page_settings").upsert({ id: PAGE_THEME_ROW_ID, theme_id: id, changed_by: MY_NAME, extra_height: extraHeight, updated_at: new Date().toISOString() });
+            await supabase.from("page_settings").upsert({
+              id: PAGE_THEME_ROW_ID,
+              theme_id: id,
+              extra_height: extraHeight,
+              updated_at: new Date().toISOString(),
+            });
           }}
           onClose={() => setShowThemeModal(false)}
         />
       )}
-      {notification && <Notification message={notification} onDone={() => setNotification(null)} />}
     </>
   );
 }
-
