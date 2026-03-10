@@ -677,10 +677,13 @@ function OnlineBadge({ count }) {
   );
 }
 
-function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrokeComplete, onDrawStart }) {
+// ── DrawingCanvas ─────────────────────────────────────────────────────────────
+// Accepts onDeleteStroke so hovering a stroke in text-mode reveals a ✕ button.
+function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrokeComplete, onDrawStart, onDeleteStroke }) {
   const canvasRef = useRef(null);
   const isMouseDown = useRef(false);
   const currentPath = useRef([]);
+  const [hoveredStrokeId, setHoveredStrokeId] = useState(null);
 
   useEffect(() => {
     const resize = () => {
@@ -689,7 +692,6 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
       if (!canvas || !page) return;
       const newWidth = page.offsetWidth;
       const newHeight = page.scrollHeight;
-      // only resize if dimensions actually changed to avoid clearing the canvas unnecessarily
       if (canvas.width === newWidth && canvas.height === newHeight) return;
       const imageData = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
       canvas.width = newWidth;
@@ -698,7 +700,6 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     };
     resize();
     window.addEventListener("resize", resize);
-    // watch the page element itself for height changes (add page button)
     const observer = new ResizeObserver(resize);
     if (pageRef.current) observer.observe(pageRef.current);
     return () => {
@@ -732,7 +733,6 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     const rect = page.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    // exact same math as the textbox click handler
     const xPct = (clientX - rect.left) / rect.width;
     const yPct = (clientY - rect.top) / rect.height;
     return {
@@ -776,23 +776,96 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     currentPath.current = [];
   };
 
+  // ── hover-delete helpers ───────────────────────────────────────────────────
+  // Returns true if canvas-space point (px,py) is within threshold px of any
+  // segment in the stroke. Used to detect which stroke the mouse is over.
+  const isNearStroke = (px, py, stroke) => {
+    const threshold = Math.max(stroke.size, 4) + 8;
+    const pts = stroke.points;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
+      const dx = bx - ax, dy = by - ay;
+      const lenSq = dx * dx + dy * dy;
+      const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+      const nx = ax + t * dx - px, ny = ay + t * dy - py;
+      if (nx * nx + ny * ny < threshold * threshold) return true;
+    }
+    return false;
+  };
+
+  // Attach mousemove to the page element — no blocking overlay div needed
+  useEffect(() => {
+    const page = pageRef.current;
+    if (!page) return;
+    const onMove = (e) => {
+      if (isDrawing) { setHoveredStrokeId(null); return; }
+      const rect = page.getBoundingClientRect();
+      const px = ((e.clientX - rect.left) / rect.width) * page.offsetWidth;
+      const py = ((e.clientY - rect.top) / rect.height) * page.scrollHeight;
+      const hit = strokes.slice().reverse().find(s => s.points && s.points.length >= 2 && isNearStroke(px, py, s));
+      setHoveredStrokeId(hit ? hit.id : null);
+    };
+    const onLeave = () => setHoveredStrokeId(null);
+    page.addEventListener("mousemove", onMove);
+    page.addEventListener("mouseleave", onLeave);
+    return () => {
+      page.removeEventListener("mousemove", onMove);
+      page.removeEventListener("mouseleave", onLeave);
+    };
+  }, [isDrawing, strokes, pageRef]);
+
+  const hoveredStroke = hoveredStrokeId ? strokes.find(s => s.id === hoveredStrokeId) : null;
+  const getMid = (pts) => pts[Math.floor(pts.length / 2)];
+
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: "absolute", top: 0, left: 0, zIndex: 15,
-        pointerEvents: isDrawing ? "all" : "none",
-        cursor: isDrawing ? "crosshair" : "default",
-        touchAction: "none",
-      }}
-      onMouseDown={startDraw}
-      onMouseMove={draw}
-      onMouseUp={endDraw}
-      onMouseLeave={endDraw}
-      onTouchStart={startDraw}
-      onTouchMove={draw}
-      onTouchEnd={endDraw}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: "absolute", top: 0, left: 0, zIndex: 15,
+          pointerEvents: isDrawing ? "all" : "none",
+          cursor: isDrawing ? `url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cg%20transform%3D%22rotate%28-45%2016%2016%29%22%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23e91e8c%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Cpolygon%20points%3D%2213%2C20%2019%2C20%2016%2C28%22%20fill%3D%22%231a1a2e%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%225%22%20rx%3D%222%22%20fill%3D%22%23ff85a2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") 2 30, crosshair` : "default",
+          touchAction: "none",
+        }}
+        onMouseDown={startDraw}
+        onMouseMove={draw}
+        onMouseUp={endDraw}
+        onMouseLeave={endDraw}
+        onTouchStart={startDraw}
+        onTouchMove={draw}
+        onTouchEnd={endDraw}
+      />
+
+      {/* No overlay div — mousemove is attached to the page element in App */}
+
+      {/* ✕ button shown only on the hovered stroke's midpoint */}
+      {!isDrawing && hoveredStroke && hoveredStroke.points && hoveredStroke.points.length >= 2 && (() => {
+        const mid = getMid(hoveredStroke.points);
+        return (
+          <button
+            style={{
+              position: "absolute",
+              left: mid.x - 9, top: mid.y - 9,
+              width: 18, height: 18,
+              borderRadius: "50%",
+              background: "#e74c3c", color: "white",
+              border: "2px solid white",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+              fontSize: 13, lineHeight: 1,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", zIndex: 20, pointerEvents: "all",
+              padding: 0, fontFamily: "sans-serif",
+            }}
+            onMouseEnter={() => setHoveredStrokeId(hoveredStroke.id)}
+            onMouseDown={(e) => {
+              e.stopPropagation(); e.preventDefault();
+              setHoveredStrokeId(null);
+              onDeleteStroke(hoveredStroke.id);
+            }}
+          >×</button>
+        );
+      })()}
+    </>
   );
 }
 
@@ -923,15 +996,12 @@ export default function App() {
         });
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "drawing_strokes" }, (payload) => {
-        // remove just the deleted stroke by id
         setStrokes(prev => prev.filter(s => s.id !== payload.old.id));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // checks if an eraser path comes close enough to any point in a pen stroke
-  // save a finished pen stroke to supabase
   const handleStrokeComplete = useCallback(async (stroke) => {
     setStrokes(prev => [...prev, stroke]);
     const { data } = await supabase.from("drawing_strokes").insert([{
@@ -949,7 +1019,12 @@ export default function App() {
     }
   }, []);
 
-  // clear all strokes for everyone
+  const handleDeleteStroke = useCallback(async (id) => {
+    if (!id) return;
+    setStrokes(prev => prev.filter(s => s.id !== id));
+    await supabase.from("drawing_strokes").delete().eq("id", id);
+  }, []);
+
   const handleClearDrawing = async () => {
     setStrokes([]);
     await supabase.from("drawing_strokes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
@@ -1314,7 +1389,7 @@ export default function App() {
           transition: opacity 0.22s ease, filter 0.22s ease;
           padding-bottom: 200px;
         }
-        .notebook-page.drawing-active { cursor: none; }
+        .notebook-page.drawing-active { cursor: default; }
         .notebook-page.transitioning { opacity: 0; filter: blur(8px); }
 
         .writing-node {
@@ -1494,10 +1569,9 @@ export default function App() {
 
         <div className="toolbar-divider" />
 
-        {/* sliding mode toggle — textbox on left, draw on right */}
+        {/* sliding mode toggle */}
         <div className="mode-toggle-wrap">
           <div className="mode-toggle" onClick={(e) => e.stopPropagation()}>
-            {/* sliding pill that moves behind the icons */}
             <div className={`mode-toggle-pill${isDrawingMode ? " draw" : ""}`} />
             <button
               className={`mode-toggle-btn${!isDrawingMode ? " active" : ""}`}
@@ -1527,7 +1601,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* draw settings dropdown — only before drawing starts */}
           {isDrawingMode && showDrawMenu && (
             <div className="draw-dropdown" onClick={(e) => e.stopPropagation()}>
               <p className="picker-label">Pen color</p>
@@ -1579,7 +1652,6 @@ export default function App() {
         </div>
       </div>
 
-
       <div className="page-wrapper">
         <div
           className={`notebook-page${transitioning ? " transitioning" : ""}${isDrawingMode ? " drawing-active" : ""}`}
@@ -1609,7 +1681,6 @@ export default function App() {
             />
           ))}
 
-          {/* drawing canvas lives inside the page, above everything else */}
           <DrawingCanvas
             isDrawing={isDrawingMode}
             penColor={penColor}
@@ -1618,6 +1689,7 @@ export default function App() {
             strokes={strokes}
             onStrokeComplete={handleStrokeComplete}
             onDrawStart={() => setShowDrawMenu(false)}
+            onDeleteStroke={handleDeleteStroke}
           />
 
           {activeInput && !isDrawingMode && (
