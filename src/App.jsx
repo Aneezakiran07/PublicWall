@@ -23,7 +23,6 @@ const INK_PRESETS = [
   "#e91e8c","#00897b","#5c6bc0","#f57f17","#4a148c","#1b5e20",
 ];
 
-// pen color options shown in the drawing toolbar
 const PEN_COLORS = [
   "#1a1a2e","#e74c3c","#e67e22","#f1c40f","#2ecc71","#3498db",
   "#9b59b6","#ff6b9d","#1abc9c","#e91e8c","#ffffff","#000000",
@@ -692,6 +691,7 @@ function ThemeModal({ currentThemeId, onSelect, onClose }) {
   );
 }
 
+//tracks how many people are currently on the page
 function useOnlineCount() {
   const [count, setCount] = useState(1);
   useEffect(() => {
@@ -712,6 +712,7 @@ function useOnlineCount() {
   return count;
 }
 
+//shows toast when someone joins/leaves
 function useJoinEvents(userName) {
   const [events, setEvents] = useState([]);
   const myKey = useRef(crypto.randomUUID());
@@ -724,7 +725,7 @@ function useJoinEvents(userName) {
     channel
       .on("presence", { event: "join" }, ({ newPresences }) => {
         newPresences.forEach((p) => {
-          if (p.key === myKey.current) return; // don't show yourself
+          if (p.key === myKey.current) return;
           const name = p.name || "someone";
           const id = Date.now() + Math.random();
           setEvents(prev => [...prev, { id, text: `${name} joined the notebook ✨` }]);
@@ -776,6 +777,72 @@ function JoinToasts({ events }) {
   );
 }
 
+//useTypingUsers: fixed version — channel is created once, presence is
+//   updated via track() when isTyping changes rather than re-subscribing
+function useTypingUsers(userName, isTyping) {
+  const [typingUsers, setTypingUsers] = useState([]);
+  const myKey = useRef(crypto.randomUUID());
+  const channelRef = useRef(null);
+
+  // Subscribe once when userName is available
+  useEffect(() => {
+    if (!userName) return;
+    const channel = supabase.channel("typing-indicator", {
+      config: { presence: { key: myKey.current } },
+    });
+    channelRef.current = channel;
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const typing = [];
+        Object.entries(state).forEach(([key, presences]) => {
+          const p = presences[0];
+          if (key !== myKey.current && p?.typing) typing.push(p.name);
+        });
+        setTypingUsers(typing);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ name: userName, typing: false });
+        }
+      });
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [userName]);
+
+  // Update presence whenever isTyping changes — no re-subscribe needed
+  useEffect(() => {
+    if (!channelRef.current || !userName) return;
+    channelRef.current.track({ name: userName, typing: isTyping });
+  }, [isTyping, userName]);
+
+  return typingUsers;
+}
+
+function TypingIndicator({ users }) {
+  if (!users.length) return null;
+  const text = users.length === 1
+    ? `${users[0]} is typing...`
+    : `${users.slice(0, -1).join(", ")} and ${users[users.length - 1]} are typing...`;
+  return (
+    <div style={{
+      position: "fixed", bottom: 24, right: 24,
+      background: "rgba(255,255,255,0.92)",
+      border: "1.5px solid rgba(255,180,210,0.5)",
+      borderRadius: 20, padding: "6px 14px",
+      fontFamily: "'Patrick Hand', cursive", fontSize: 12, color: "#a06080",
+      boxShadow: "0 4px 16px rgba(255,107,157,0.12)",
+      backdropFilter: "blur(8px)", zIndex: 3000,
+      pointerEvents: "none", animation: "toastIn 0.2s ease",
+    }}>
+      ✏️ {text}
+    </div>
+  );
+}
+
+//  OnlineBadge: shows live count in the toolbar
 function OnlineBadge({ count }) {
   return (
     <div className="online-badge" title={`${count} ${count === 1 ? "person" : "people"} online`}>
@@ -785,8 +852,6 @@ function OnlineBadge({ count }) {
   );
 }
 
-// ── DrawingCanvas ─────────────────────────────────────────────────────────────
-// Accepts onDeleteStroke so hovering a stroke in text-mode reveals a ✕ button.
 function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrokeComplete, onDrawStart, onDeleteStroke }) {
   const canvasRef = useRef(null);
   const isMouseDown = useRef(false);
@@ -884,9 +949,6 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     currentPath.current = [];
   };
 
-  // ── hover-delete helpers ───────────────────────────────────────────────────
-  // Returns true if canvas-space point (px,py) is within threshold px of any
-  // segment in the stroke. Used to detect which stroke the mouse is over.
   const isNearStroke = (px, py, stroke) => {
     const threshold = Math.max(stroke.size, 4) + 8;
     const pts = stroke.points;
@@ -901,7 +963,6 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     return false;
   };
 
-  // Attach mousemove to the page element — no blocking overlay div needed
   useEffect(() => {
     const page = pageRef.current;
     if (!page) return;
@@ -943,10 +1004,6 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
         onTouchMove={draw}
         onTouchEnd={endDraw}
       />
-
-      {/* No overlay div — mousemove is attached to the page element in App */}
-
-      {/* ✕ button shown only on the hovered stroke's midpoint */}
       {!isDrawing && hoveredStroke && hoveredStroke.points && hoveredStroke.points.length >= 2 && (() => {
         const mid = getMid(hoveredStroke.points);
         return (
@@ -977,7 +1034,6 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
   );
 }
 
-// small pen size preview dots shown in the toolbar
 function PenSizeDot({ size, selected, onClick }) {
   return (
     <button
@@ -1017,7 +1073,6 @@ export default function App() {
   const [transitioning, setTransitioning]     = useState(false);
   const [extraHeight, setExtraHeight]         = useState(0);
 
-  // drawing state
   const [isDrawingMode, setIsDrawingMode]     = useState(false);
   const [showDrawMenu, setShowDrawMenu]       = useState(false);
   const [penColor, setPenColor]               = useState("#e91e8c");
@@ -1034,6 +1089,9 @@ export default function App() {
   const activeInputRef = useRef(null);
   const inkColorRef    = useRef(inkColor);
   const inkFontRef     = useRef(inkFont);
+
+  // Pass isTyping as a boolean — the hook handles its own channel lifecycle
+  const typingUsers = useTypingUsers(userName, !!activeInput);
 
   useEffect(() => { editingIdRef.current   = editingId;   }, [editingId]);
   useEffect(() => { inputTextRef.current   = inputText;   }, [inputText]);
@@ -1080,7 +1138,6 @@ export default function App() {
       });
   }, []);
 
-  // load saved strokes from supabase on mount
   useEffect(() => {
     supabase.from("drawing_strokes").select("*").order("created_at", { ascending: true })
       .then(({ data }) => {
@@ -1095,7 +1152,6 @@ export default function App() {
       });
   }, []);
 
-  // realtime subscription so all users see new strokes appear live
   useEffect(() => {
     const channel = supabase
       .channel("drawing-strokes-realtime")
@@ -1113,7 +1169,6 @@ export default function App() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // realtime for writings
   useEffect(() => {
     const channel = supabase
       .channel("writings-realtime")
@@ -1130,7 +1185,6 @@ export default function App() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // realtime for media_items
   useEffect(() => {
     const channel = supabase
       .channel("media-items-realtime")
@@ -1175,7 +1229,6 @@ export default function App() {
     await supabase.from("drawing_strokes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   };
 
-  // click handler — blocked entirely when drawing mode is on
   useEffect(() => {
     const handler = (e) => {
       if (isDrawingMode) return;
@@ -1275,7 +1328,6 @@ export default function App() {
   };
 
   const currentFontLabel = FONTS.find((f) => f.value === inkFont)?.label || "Caveat";
-
   const PEN_SIZES = [2, 4, 8];
 
   return (
@@ -1419,17 +1471,6 @@ export default function App() {
         .pen-color-dot:hover { transform: scale(1.2); }
         .pen-color-dot.selected { border-color: #ff6b9d; transform: scale(1.12); }
         .pen-size-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-        .eraser-row { display: flex; align-items: center; gap: 8px; }
-        .eraser-btn {
-          flex: 1; padding: 5px 8px;
-          background: rgba(255,240,248,0.9);
-          border: 1.5px solid rgba(255,180,210,0.5);
-          border-radius: 10px;
-          font-family: 'Patrick Hand', cursive; font-size: 12px; color: #8b4060;
-          cursor: pointer; transition: all 0.15s; white-space: nowrap;
-        }
-        .eraser-btn:hover { background: rgba(255,215,235,0.95); }
-        .eraser-btn.active { background: rgba(255,200,230,0.95); border-color: #ff85a2; color: #ff6b9d; }
 
         .sticker-picker {
           position: absolute; top: calc(100% + 10px);
@@ -1691,6 +1732,7 @@ export default function App() {
         <span className="toolbar-title">shared notebook</span>
 
         <div className="toolbar-divider" />
+        {/* Visitor counter + online count live in the toolbar */}
         <OnlineBadge count={onlineCount} />
 
         <div className="toolbar-divider" />
@@ -1727,7 +1769,6 @@ export default function App() {
 
         <div className="toolbar-divider" />
 
-        {/* sliding mode toggle */}
         <div className="mode-toggle-wrap">
           <div className="mode-toggle" onClick={(e) => e.stopPropagation()}>
             <div className={`mode-toggle-pill${isDrawingMode ? " draw" : ""}`} />
@@ -1880,6 +1921,7 @@ export default function App() {
       )}
 
       <JoinToasts events={joinEvents} />
+      <TypingIndicator users={typingUsers} />
 
       {showThemeModal && (
         <ThemeModal
@@ -1900,4 +1942,3 @@ export default function App() {
     </>
   );
 }
-
