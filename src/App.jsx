@@ -28,6 +28,8 @@ const PEN_COLORS = [
   "#9b59b6","#ff6b9d","#1abc9c","#e91e8c","#ffffff","#000000",
 ];
 
+const REACTION_EMOJIS = ["❤️", "🔥", "✨", "😂", "🥺", "👏"];
+
 const STICKER_PACKS = [
   { label: "😀 Smileys", stickers: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","😉","😊","😇","🥰","😍","🤩","😘","😗","☺️","😚","😙","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤫","🤔","🤐","🤨","😐","😑","😶","😏","😒","🙄","😬","🤥","😌","😔","😪","🤤","😴","😷","🤒","🤕","🤢","🤮","🤧","🥵","🥶","🥴","😵","🤯","🤠","🥳","🥸","😎","🤓","🧐","😕","😟","🙁","☹️","😮","😯","😲","😳","🥺","😦","😧","😨","😰","😥","😢","😭","😱","😖","😣","😞","😓","😩","😫","🥱","😤","😡","😠","🤬","😈","👿","💀","☠️","💩","🤡","👹","👺","👻","👽","👾","🤖"] },
   { label: "👋 People", stickers: ["👋","🤚","🖐️","✋","🖖","👌","🤌","🤏","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","✍️","💅","🤳","💪","🦾","🦿","🦵","🦶","👂","🦻","👃","🧠","🫀","🫁","🦷","🦴","👀","👁️","👅","👄","💋","👶","🧒","👦","👧","🧑","👱","👨","🧔","👩","🧓","👴","👵","🙍","🙎","🙅","🙆","💁","🙋","🧏","🙇","🤦","🤷"] },
@@ -691,7 +693,7 @@ function ThemeModal({ currentThemeId, onSelect, onClose }) {
   );
 }
 
-//tracks how many people are currently on the page
+// useOnlineCount: tracks how many people are currently on the page
 function useOnlineCount() {
   const [count, setCount] = useState(1);
   useEffect(() => {
@@ -712,7 +714,7 @@ function useOnlineCount() {
   return count;
 }
 
-//shows toast when someone joins/leaves
+// ── useJoinEvents: shows toast when someone joins/leaves ──────────────────────
 function useJoinEvents(userName) {
   const [events, setEvents] = useState([]);
   const myKey = useRef(crypto.randomUUID());
@@ -777,8 +779,8 @@ function JoinToasts({ events }) {
   );
 }
 
-//useTypingUsers: fixed version — channel is created once, presence is
-//   updated via track() when isTyping changes rather than re-subscribing
+// ── useTypingUsers: fixed version — channel is created once, presence is
+//   updated via track() when isTyping changes rather than re-subscribing. ──────
 function useTypingUsers(userName, isTyping) {
   const [typingUsers, setTypingUsers] = useState([]);
   const myKey = useRef(crypto.randomUUID());
@@ -842,7 +844,7 @@ function TypingIndicator({ users }) {
   );
 }
 
-//  OnlineBadge: shows live count in the toolbar
+// ── OnlineBadge: shows live count in the toolbar ─────────────────────────────
 function OnlineBadge({ count }) {
   return (
     <div className="online-badge" title={`${count} ${count === 1 ? "person" : "people"} online`}>
@@ -852,6 +854,7 @@ function OnlineBadge({ count }) {
   );
 }
 
+// ── DrawingCanvas ──────────────────────────────────────────────────────────────
 function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrokeComplete, onDrawStart, onDeleteStroke }) {
   const canvasRef = useRef(null);
   const isMouseDown = useRef(false);
@@ -1055,6 +1058,107 @@ function PenSizeDot({ size, selected, onClick }) {
   );
 }
 
+// ── useReactions: fire-and-forget broadcast, no DB needed ─────────────────────
+function useReactions(userName) {
+  const [bursts, setBursts] = useState([]);
+  const channelRef = useRef(null);
+
+  useEffect(() => {
+    const channel = supabase.channel("reactions-broadcast");
+    channelRef.current = channel;
+    channel
+      .on("broadcast", { event: "reaction" }, ({ payload }) => {
+        const id = crypto.randomUUID();
+        const x = 10 + Math.random() * 80;
+        setBursts(prev => [...prev, { id, emoji: payload.emoji, name: payload.name, x }]);
+        setTimeout(() => setBursts(prev => prev.filter(b => b.id !== id)), 2800);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const sendReaction = useCallback((emoji) => {
+    // show the burst locally immediately (broadcast doesn't echo back to sender)
+    const id = crypto.randomUUID();
+    const x = 10 + Math.random() * 80;
+    setBursts(prev => [...prev, { id, emoji, name: userName || "someone", x }]);
+    setTimeout(() => setBursts(prev => prev.filter(b => b.id !== id)), 2800);
+    // broadcast to everyone else
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "reaction",
+      payload: { emoji, name: userName || "someone" },
+    });
+  }, [userName]);
+
+  return { bursts, sendReaction };
+}
+
+//  ReactionBurst: single floating emoji that animates up 
+function ReactionBurst({ burst }) {
+  return (
+    <div style={{
+      position: "fixed",
+      bottom: 80,
+      left: `${burst.x}%`,
+      zIndex: 4000,
+      pointerEvents: "none",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 2,
+      animation: "reactionFloat 2.8s ease-out forwards",
+    }}>
+      <span style={{ fontSize: 32, lineHeight: 1, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.15))" }}>
+        {burst.emoji}
+      </span>
+      <span style={{
+        fontFamily: "'Patrick Hand', cursive", fontSize: 11,
+        color: "#8b4060", background: "rgba(255,255,255,0.88)",
+        borderRadius: 10, padding: "1px 7px",
+        boxShadow: "0 1px 6px rgba(0,0,0,0.08)",
+        whiteSpace: "nowrap",
+      }}>
+        {burst.name}
+      </span>
+    </div>
+  );
+}
+
+//ReactionBar: fixed bottom-center strip of reaction buttons
+function ReactionBar({ onReact }) {
+  return (
+    <div style={{
+      position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)",
+      display: "flex", alignItems: "center", gap: 4,
+      background: "rgba(255,255,255,0.92)",
+      border: "1.5px solid rgba(255,180,210,0.5)",
+      borderRadius: 40, padding: "6px 12px",
+      boxShadow: "0 4px 20px rgba(255,107,157,0.15), 0 1px 4px rgba(0,0,0,0.08)",
+      backdropFilter: "blur(10px)",
+      zIndex: 3500,
+    }}>
+      {REACTION_EMOJIS.map(emoji => (
+        <button
+          key={emoji}
+          onClick={() => onReact(emoji)}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 22, lineHeight: 1, padding: "2px 5px",
+            borderRadius: 12, transition: "transform 0.12s",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = "scale(1.35)"}
+          onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+          title={emoji}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [writings, setWritings]               = useState([]);
   const [mediaItems, setMediaItems]           = useState([]);
@@ -1092,6 +1196,7 @@ export default function App() {
 
   // Pass isTyping as a boolean — the hook handles its own channel lifecycle
   const typingUsers = useTypingUsers(userName, !!activeInput);
+  const { bursts, sendReaction } = useReactions(userName);
 
   useEffect(() => { editingIdRef.current   = editingId;   }, [editingId]);
   useEffect(() => { inputTextRef.current   = inputText;   }, [inputText]);
@@ -1654,6 +1759,11 @@ export default function App() {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes reactionFloat {
+          0%   { opacity: 1; transform: translateY(0) scale(1); }
+          20%  { opacity: 1; transform: translateY(-30px) scale(1.15); }
+          100% { opacity: 0; transform: translateY(-160px) scale(0.8); }
+        }
         .modal {
           background: #fffbf8; border-radius: 22px;
           width: min(760px, 96vw); max-height: 88vh; overflow-y: auto;
@@ -1922,6 +2032,8 @@ export default function App() {
 
       <JoinToasts events={joinEvents} />
       <TypingIndicator users={typingUsers} />
+      <ReactionBar onReact={sendReaction} />
+      {bursts.map(b => <ReactionBurst key={b.id} burst={b} />)}
 
       {showThemeModal && (
         <ThemeModal
