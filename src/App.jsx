@@ -610,8 +610,52 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
       >
         {writing.content}
       </div>
+      {writing.author_name && (
+        <div className="writing-author">~ {writing.author_name}</div>
+      )}
       <button className="delete-btn" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(writing.id); }}>×</button>
       <div className="resize-handle-text" onMouseDown={handleResizeDown} title="drag to resize">⤡</div>
+    </div>
+  );
+}
+
+function NameModal({ onSave }) {
+  const [name, setName] = useState("");
+  const inputRef = useRef(null);
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 50); }, []);
+  const handleSave = () => { const t = name.trim(); if (t) onSave(t); };
+  return (
+    <div className="modal-backdrop">
+      <div className="modal" style={{ maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderBottom: "none", paddingBottom: 0 }}>
+          <span className="modal-title">✏️ what's your name?</span>
+        </div>
+        <p className="modal-subtitle" style={{ paddingBottom: 16 }}>it'll show on your notes so others know who wrote what~</p>
+        <div style={{ padding: "0 26px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <input
+            ref={inputRef}
+            style={{
+              background: "rgba(255,240,248,0.8)",
+              border: "1.5px solid rgba(255,180,210,0.5)",
+              borderRadius: 12, padding: "10px 14px",
+              fontSize: 18, fontFamily: "'Caveat', cursive",
+              color: "#4a2838", width: "100%", outline: "none",
+            }}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+            placeholder="type your name~"
+            maxLength={24}
+          />
+          <button
+            className="tb-btn primary"
+            style={{ height: 40, fontSize: 15, borderRadius: 14, opacity: name.trim() ? 1 : 0.5 }}
+            onClick={handleSave}
+          >
+            let's go ✨
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -666,6 +710,70 @@ function useOnlineCount() {
     return () => { supabase.removeChannel(channel); };
   }, []);
   return count;
+}
+
+function useJoinEvents(userName) {
+  const [events, setEvents] = useState([]);
+  const myKey = useRef(crypto.randomUUID());
+
+  useEffect(() => {
+    if (!userName) return;
+    const channel = supabase.channel("join-events", {
+      config: { presence: { key: myKey.current } },
+    });
+    channel
+      .on("presence", { event: "join" }, ({ newPresences }) => {
+        newPresences.forEach((p) => {
+          if (p.key === myKey.current) return; // don't show yourself
+          const name = p.name || "someone";
+          const id = Date.now() + Math.random();
+          setEvents(prev => [...prev, { id, text: `${name} joined the notebook ✨` }]);
+          setTimeout(() => setEvents(prev => prev.filter(e => e.id !== id)), 4000);
+        });
+      })
+      .on("presence", { event: "leave" }, ({ leftPresences }) => {
+        leftPresences.forEach((p) => {
+          if (p.key === myKey.current) return;
+          const name = p.name || "someone";
+          const id = Date.now() + Math.random();
+          setEvents(prev => [...prev, { id, text: `${name} left the notebook~` }]);
+          setTimeout(() => setEvents(prev => prev.filter(e => e.id !== id)), 4000);
+        });
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ name: userName, key: myKey.current });
+        }
+      });
+    return () => { supabase.removeChannel(channel); };
+  }, [userName]);
+
+  return events;
+}
+
+function JoinToasts({ events }) {
+  if (!events.length) return null;
+  return (
+    <div style={{
+      position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+      zIndex: 3000, pointerEvents: "none",
+    }}>
+      {events.map(e => (
+        <div key={e.id} style={{
+          background: "rgba(255,255,255,0.92)",
+          border: "1.5px solid rgba(255,180,210,0.5)",
+          borderRadius: 20, padding: "7px 18px",
+          fontFamily: "'Patrick Hand', cursive", fontSize: 13, color: "#8b4060",
+          boxShadow: "0 4px 16px rgba(255,107,157,0.15)",
+          backdropFilter: "blur(8px)",
+          animation: "toastIn 0.25s ease",
+        }}>
+          {e.text}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function OnlineBadge({ count }) {
@@ -894,6 +1002,8 @@ function PenSizeDot({ size, selected, onClick }) {
 export default function App() {
   const [writings, setWritings]               = useState([]);
   const [mediaItems, setMediaItems]           = useState([]);
+  const [userName, setUserName]               = useState(() => localStorage.getItem("nb_username") || "");
+  const [showNameModal, setShowNameModal]     = useState(() => !localStorage.getItem("nb_username"));
   const [activeInput, setActiveInput]         = useState(null);
   const [inputText, setInputText]             = useState("");
   const [editingId, setEditingId]             = useState(null);
@@ -915,6 +1025,7 @@ export default function App() {
   const [strokes, setStrokes]                 = useState([]);
 
   const onlineCount = useOnlineCount();
+  const joinEvents  = useJoinEvents(userName);
 
   const pageRef        = useRef(null);
   const inputRef       = useRef(null);
@@ -1096,11 +1207,12 @@ export default function App() {
     const pos  = activeInputRef.current;
     if (e.key === "Enter" && text.trim() && pos) {
       const writing = {
-        content:    text.trim(),
-        position_x: Math.min((pos.x / 100) * (pageRef.current?.offsetWidth || 900), (pageRef.current?.offsetWidth || 900) - 160),
-        position_y: (pos.y / 100) * (pageRef.current?.scrollHeight || 600),
+        content:     text.trim(),
+        position_x:  Math.min((pos.x / 100) * (pageRef.current?.offsetWidth || 900), (pageRef.current?.offsetWidth || 900) - 160),
+        position_y:  (pos.y / 100) * (pageRef.current?.scrollHeight || 600),
         font_color:  inkColorRef.current,
         font_style:  inkFontRef.current,
+        author_name: userName || null,
       };
       const { data } = await supabase.from("writings").insert([writing]).select().single();
       if (data) setWritings((prev) => [...prev, data]);
@@ -1465,6 +1577,14 @@ export default function App() {
           display: none; align-items: center; justify-content: center;
           z-index: 20; padding: 0;
         }
+        .writing-author {
+          position: absolute; bottom: -18px; left: 2px;
+          font-family: 'Patrick Hand', cursive; font-size: 11px;
+          color: #c090a8; opacity: 0; white-space: nowrap;
+          transition: opacity 0.15s; pointer-events: none;
+          text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        }
+        .writing-node:hover .writing-author { opacity: 1; }
         .writing-node:hover .delete-btn { display: flex; }
         @keyframes inkDrop {
           from { opacity: 0; transform: translateY(-50%) scale(0.9); }
@@ -1489,6 +1609,10 @@ export default function App() {
           animation: fadeIn 0.15s ease;
         }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
         .modal {
           background: #fffbf8; border-radius: 22px;
           width: min(760px, 96vw); max-height: 88vh; overflow-y: auto;
@@ -1746,6 +1870,16 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {showNameModal && (
+        <NameModal onSave={(name) => {
+          setUserName(name);
+          localStorage.setItem("nb_username", name);
+          setShowNameModal(false);
+        }} />
+      )}
+
+      <JoinToasts events={joinEvents} />
 
       {showThemeModal && (
         <ThemeModal
