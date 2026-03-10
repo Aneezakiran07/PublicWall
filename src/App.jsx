@@ -1002,6 +1002,40 @@ export default function App() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // realtime for writings
+  useEffect(() => {
+    const channel = supabase
+      .channel("writings-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "writings" }, (payload) => {
+        setWritings(prev => prev.find(w => w.id === payload.new.id) ? prev : [...prev, payload.new]);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "writings" }, (payload) => {
+        setWritings(prev => prev.map(w => w.id === payload.new.id ? payload.new : w));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "writings" }, (payload) => {
+        setWritings(prev => prev.filter(w => w.id !== payload.old.id));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // realtime for media_items
+  useEffect(() => {
+    const channel = supabase
+      .channel("media-items-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "media_items" }, (payload) => {
+        setMediaItems(prev => prev.find(m => m.id === payload.new.id) ? prev : [...prev, payload.new]);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "media_items" }, (payload) => {
+        setMediaItems(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "media_items" }, (payload) => {
+        setMediaItems(prev => prev.filter(m => m.id !== payload.old.id));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const handleStrokeComplete = useCallback(async (stroke) => {
     setStrokes(prev => [...prev, stroke]);
     const { data } = await supabase.from("drawing_strokes").insert([{
@@ -1732,3 +1766,4 @@ export default function App() {
     </>
   );
 }
+
