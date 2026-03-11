@@ -1014,7 +1014,8 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
         style={{
           position: "absolute", top: 0, left: 0, zIndex: 15,
           pointerEvents: isDrawing ? "all" : "none",
-          cursor: isDrawing ? `url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cg%20transform%3D%22rotate%28-45%2016%2016%29%22%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23e91e8c%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Cpolygon%20points%3D%2213%2C20%2019%2C20%2016%2C28%22%20fill%3D%22%231a1a2e%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%225%22%20rx%3D%222%22%20fill%3D%22%23ff85a2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") 2 30, crosshair` : "default",
+          //cursor: isDrawing ? `url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cg%20transform%3D%22rotate%28-45%2016%2016%29%22%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23e91e8c%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Cpolygon%20points%3D%2213%2C20%2019%2C20%2016%2C28%22%20fill%3D%22%231a1a2e%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%225%22%20rx%3D%222%22%20fill%3D%22%23ff85a2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") 2 30, crosshair` : "default",
+          cursor: isDrawing ? "crosshair" : "default",
           touchAction: "none",
         }}
         onMouseDown={startDraw}
