@@ -30,6 +30,14 @@ const PEN_COLORS = [
 
 const REACTION_EMOJIS = ["❤️", "🔥", "✨", "😂", "🥺", "👏"];
 
+const LOFI_TRACKS = [
+  { url: "https://stream.nightride.fm/nightride.mp3",  label: "nightride fm" },
+  { url: "https://stream.nightride.fm/chillsynth.mp3", label: "chillsynth fm" },
+  { url: "https://stream.nightride.fm/datawave.mp3",   label: "datawave fm" },
+  { url: "https://stream.nightride.fm/spacesynth.mp3", label: "spacesynth fm" },
+];
+
+
 const STICKER_PACKS = [
   { label: "😀 Smileys", stickers: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","😉","😊","😇","🥰","😍","🤩","😘","😗","☺️","😚","😙","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤫","🤔","🤐","🤨","😐","😑","😶","😏","😒","🙄","😬","🤥","😌","😔","😪","🤤","😴","😷","🤒","🤕","🤢","🤮","🤧","🥵","🥶","🥴","😵","🤯","🤠","🥳","🥸","😎","🤓","🧐","😕","😟","🙁","☹️","😮","😯","😲","😳","🥺","😦","😧","😨","😰","😥","😢","😭","😱","😖","😣","😞","😓","😩","😫","🥱","😤","😡","😠","🤬","😈","👿","💀","☠️","💩","🤡","👹","👺","👻","👽","👾","🤖"] },
   { label: "👋 People", stickers: ["👋","🤚","🖐️","✋","🖖","👌","🤌","🤏","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","✍️","💅","🤳","💪","🦾","🦿","🦵","🦶","👂","🦻","👃","🧠","🫀","🫁","🦷","🦴","👀","👁️","👅","👄","💋","👶","🧒","👦","👧","🧑","👱","👨","🧔","👩","🧓","👴","👵","🙍","🙎","🙅","🙆","💁","🙋","🧏","🙇","🤦","🤷"] },
@@ -693,7 +701,7 @@ function ThemeModal({ currentThemeId, onSelect, onClose }) {
   );
 }
 
-// useOnlineCount: tracks how many people are currently on the page
+// tracks how many people are currently on the
 function useOnlineCount() {
   const [count, setCount] = useState(1);
   useEffect(() => {
@@ -714,7 +722,7 @@ function useOnlineCount() {
   return count;
 }
 
-// ── useJoinEvents: shows toast when someone joins/leaves ──────────────────────
+//shows toast when someone joins/leaves
 function useJoinEvents(userName) {
   const [events, setEvents] = useState([]);
   const myKey = useRef(crypto.randomUUID());
@@ -779,8 +787,8 @@ function JoinToasts({ events }) {
   );
 }
 
-// ── useTypingUsers: fixed version — channel is created once, presence is
-//   updated via track() when isTyping changes rather than re-subscribing. ──────
+//channel is created once, presence is
+//   updated via track() when isTyping changes rather than re-subscribing
 function useTypingUsers(userName, isTyping) {
   const [typingUsers, setTypingUsers] = useState([]);
   const myKey = useRef(crypto.randomUUID());
@@ -844,7 +852,6 @@ function TypingIndicator({ users }) {
   );
 }
 
-// ── OnlineBadge: shows live count in the toolbar ─────────────────────────────
 function OnlineBadge({ count }) {
   return (
     <div className="online-badge" title={`${count} ${count === 1 ? "person" : "people"} online`}>
@@ -854,7 +861,6 @@ function OnlineBadge({ count }) {
   );
 }
 
-// ── DrawingCanvas ──────────────────────────────────────────────────────────────
 function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrokeComplete, onDrawStart, onDeleteStroke }) {
   const canvasRef = useRef(null);
   const isMouseDown = useRef(false);
@@ -1058,6 +1064,92 @@ function PenSizeDot({ size, selected, onClick }) {
   );
 }
 
+//syncs play/pause/track state via broadcast only
+function useLofiSync(userName) {
+  const [playing, setPlaying] = useState(false);
+  const [trackIdx, setTrackIdx] = useState(0);
+  const channelRef = useRef(null);
+  const isSyncingRef = useRef(false);
+
+  useEffect(() => {
+    const channel = supabase.channel("lofi-sync");
+    channelRef.current = channel;
+
+    channel
+      .on("broadcast", { event: "lofi" }, ({ payload }) => {
+        isSyncingRef.current = true;
+        if (payload.action === "play")  { setPlaying(true);  setTrackIdx(payload.trackIdx ?? 0); }
+        if (payload.action === "pause") { setPlaying(false); }
+        if (payload.action === "track") { setTrackIdx(payload.trackIdx); setPlaying(true); }
+        setTimeout(() => { isSyncingRef.current = false; }, 50);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const broadcast = useCallback((payload) => {
+    channelRef.current?.send({ type: "broadcast", event: "lofi", payload });
+  }, []);
+
+  const togglePlay = useCallback(() => {
+    const next = !playing;
+    setPlaying(next);
+    broadcast({ action: next ? "play" : "pause", trackIdx });
+  }, [playing, trackIdx, broadcast]);
+
+  const selectTrack = useCallback((idx) => {
+    setTrackIdx(idx);
+    setPlaying(true);
+    broadcast({ action: "track", trackIdx: idx });
+  }, [broadcast]);
+
+  return { playing, trackIdx, togglePlay, selectTrack };
+}
+
+// audio lives in App so it never unmounts 
+function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
+  const ref = useRef(null);
+  const track = LOFI_TRACKS[trackIdx];
+
+  // Close on outside click
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    setTimeout(() => document.addEventListener("mousedown", h), 10);
+    return () => document.removeEventListener("mousedown", h);
+  }, [onClose]);
+
+  return (
+    <div ref={ref} className="lofi-dropdown" onClick={(e) => e.stopPropagation()}>
+      <p className="picker-label">lofi radio</p>
+
+      {/* play/pause */}
+      <button className="lofi-play-btn" onClick={onToggle}>
+        <span style={{ fontSize: 13 }}>{playing ? "||" : "▶"}</span>
+        <span style={{ flex: 1, textAlign: "left" }}>{playing ? "now playing" : "paused"}</span>
+      </button>
+
+      {/* track list */}
+      <p className="picker-label" style={{ marginTop: 4 }}>Stations</p>
+      {LOFI_TRACKS.map((t, i) => (
+        <button
+          key={t.url}
+          className={`lofi-track-btn${trackIdx === i ? " active" : ""}`}
+          onClick={() => onSelectTrack(i)}
+        >
+          
+          <span style={{ flex: 1, textAlign: "left", fontFamily: "'Patrick Hand', cursive", fontSize: 12 }}>{t.label}</span>
+          {trackIdx === i && <span style={{ color: "#ff6b9d", fontSize: 10 }}>●</span>}
+        </button>
+      ))}
+
+      <p style={{ fontSize: 9, color: "#cca0b8", textAlign: "center", marginTop: 8, fontFamily: "'Patrick Hand', cursive" }}>
+        synced for everyone • nightride.fm
+      </p>
+    </div>
+  );
+}
+
 // ── useReactions: fire-and-forget broadcast, no DB needed ─────────────────────
 function useReactions(userName) {
   const [bursts, setBursts] = useState([]);
@@ -1094,7 +1186,7 @@ function useReactions(userName) {
   return { bursts, sendReaction };
 }
 
-//  ReactionBurst: single floating emoji that animates up 
+// ── ReactionBurst: single floating emoji that animates up ─────────────────────
 function ReactionBurst({ burst }) {
   return (
     <div style={{
@@ -1188,6 +1280,7 @@ export default function App() {
 
   const pageRef        = useRef(null);
   const inputRef       = useRef(null);
+  const audioRef       = useRef(null);
   const editingIdRef   = useRef(null);
   const inputTextRef   = useRef("");
   const activeInputRef = useRef(null);
@@ -1197,6 +1290,20 @@ export default function App() {
   // Pass isTyping as a boolean — the hook handles its own channel lifecycle
   const typingUsers = useTypingUsers(userName, !!activeInput);
   const { bursts, sendReaction } = useReactions(userName);
+  const { playing: lofiPlaying, trackIdx: lofiTrack, togglePlay: lofiToggle, selectTrack: lofiSelect } = useLofiSync(userName);
+
+  // Keep audio in sync — lives in App so closing the dropdown never kills playback
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.src = LOFI_TRACKS[lofiTrack].url;
+    if (lofiPlaying) {
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+  }, [lofiPlaying, lofiTrack]);
+  const [showLofi, setShowLofi] = useState(false);
 
   useEffect(() => { editingIdRef.current   = editingId;   }, [editingId]);
   useEffect(() => { inputTextRef.current   = inputText;   }, [inputText]);
@@ -1208,6 +1315,7 @@ export default function App() {
     setShowColorPicker(false);
     setShowFontPicker(false);
     setShowStickerPicker(false);
+    setShowLofi(false);
   };
 
   const pageTheme = PAGE_THEMES.find((t) => t.id === pageThemeId) || PAGE_THEMES[0];
@@ -1836,6 +1944,36 @@ export default function App() {
           color: #a07888; transition: all 0.15s; flex-shrink: 0;
         }
         .gif-load-more:hover { background: rgba(255,210,230,0.4); color: #8b4060; }
+        .lofi-dropdown {
+          position: absolute; top: calc(100% + 10px);
+          left: 50%; transform: translateX(-50%);
+          background: #fffbf8;
+          border: 1px solid rgba(255,180,210,0.5);
+          border-radius: 16px; padding: 14px;
+          box-shadow: 0 12px 40px rgba(255,107,157,0.2), 0 4px 12px rgba(0,0,0,0.1);
+          z-index: 9999; width: 220px;
+          animation: popIn 0.15s ease;
+        }
+        .lofi-play-btn {
+          display: flex; align-items: center; gap: 8px;
+          width: 100%; padding: 8px 10px; margin-bottom: 6px;
+          background: linear-gradient(135deg, rgba(255,133,162,0.15), rgba(255,107,157,0.1));
+          border: 1.5px solid rgba(255,180,210,0.5);
+          border-radius: 12px; cursor: pointer;
+          font-family: 'Patrick Hand', cursive; font-size: 13px; color: #8b4060;
+          transition: all 0.15s;
+        }
+        .lofi-play-btn:hover { background: rgba(255,210,230,0.4); }
+        .lofi-track-btn {
+          display: flex; align-items: center; gap: 6px;
+          width: 100%; padding: 6px 8px;
+          background: none; border: 1.5px solid transparent;
+          border-radius: 10px; cursor: pointer;
+          transition: all 0.12s;
+        }
+        .lofi-track-btn:hover { background: rgba(255,210,230,0.3); border-color: rgba(255,180,210,0.3); }
+        .lofi-track-btn.active { border-color: #ff85a2; background: rgba(255,210,230,0.2); }
+
       `}</style>
 
       <div className="toolbar">
@@ -1873,6 +2011,26 @@ export default function App() {
             <StickerGifPicker
               onPlace={handlePlaceMedia}
               onClose={() => setShowStickerPicker(false)}
+            />
+          )}
+        </div>
+
+        <div className="toolbar-divider" />
+        <div style={{ position: "relative", overflow: "visible", display: "flex", alignItems: "center" }}>
+          <button
+            className={`tb-btn${lofiPlaying ? " active" : ""}`}
+            onClick={(e) => { e.stopPropagation(); closeAllPickers(); setShowLofi(v => !v); }}
+            title="lofi radio"
+          >
+            lofi
+          </button>
+          {showLofi && (
+            <LofiPlayer
+              playing={lofiPlaying}
+              trackIdx={lofiTrack}
+              onToggle={() => { lofiToggle(); }}
+              onSelectTrack={(i) => { lofiSelect(i); }}
+              onClose={() => setShowLofi(false)}
             />
           )}
         </div>
@@ -2029,6 +2187,9 @@ export default function App() {
           setShowNameModal(false);
         }} />
       )}
+
+      {/* persistent audio — always mounted so closing the lofi dropdown doesn't stop music */}
+      <audio ref={audioRef} preload="none" />
 
       <JoinToasts events={joinEvents} />
       <TypingIndicator users={typingUsers} />
