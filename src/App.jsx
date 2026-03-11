@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { ssrDynamicImportKey } from "vite/runtime";
 
 const GIPHY_KEY = import.meta.env.VITE_GIPHY;
 const SUPABASE_URL = import.meta.env.VITE_URL;
@@ -36,7 +37,6 @@ const LOFI_TRACKS = [
   { url: "https://stream.nightride.fm/datawave.mp3",   label: "datawave fm" },
   { url: "https://stream.nightride.fm/spacesynth.mp3", label: "spacesynth fm" },
 ];
-
 
 const STICKER_PACKS = [
   { label: "😀 Smileys", stickers: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","😉","😊","😇","🥰","😍","🤩","😘","😗","☺️","😚","😙","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤫","🤔","🤐","🤨","😐","😑","😶","😏","😒","🙄","😬","🤥","😌","😔","😪","🤤","😴","😷","🤒","🤕","🤢","🤮","🤧","🥵","🥶","🥴","😵","🤯","🤠","🥳","🥸","😎","🤓","🧐","😕","😟","🙁","☹️","😮","😯","😲","😳","🥺","😦","😧","😨","😰","😥","😢","😭","😱","😖","😣","😞","😓","😩","😫","🥱","😤","😡","😠","🤬","😈","👿","💀","☠️","💩","🤡","👹","👺","👻","👽","👾","🤖"] },
@@ -511,19 +511,26 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
   const hasDragged = useRef(false);
   const resizing = useRef(false);
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, fontSize: 20 });
+
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
   useEffect(() => { onStartEditRef.current = onStartEdit; }, [onStartEdit]);
+
+  // Focus & move cursor to end when entering edit mode
   useEffect(() => {
-    if (isEditing && ref.current) {
-      ref.current.focus();
-      const range = document.createRange();
-      const sel = window.getSelection();
-      range.selectNodeContents(ref.current);
-      range.collapse(false);
-      sel.removeAllRanges();
-      sel.addRange(range);
+  if (isEditing && ref.current) {
+    // populate the empty contentEditable with existing text before focusing
+    if (!ref.current.innerText) {
+      ref.current.innerText = writing.content;
     }
-  }, [isEditing]);
+    ref.current.focus();
+    const range = document.createRange();
+    const sel = window.getSelection();
+    range.selectNodeContents(ref.current);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}, [isEditing]);
   const handleInput = () => {
     const text = ref.current.innerText;
     clearTimeout(saveTimer.current);
@@ -531,15 +538,18 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
       supabase.from("writings").update({ content: text }).eq("id", writing.id);
     }, 500);
   };
+
   const handleBlur = () => {
     const text = ref.current?.innerText?.trim();
     clearTimeout(saveTimer.current);
     if (!text) {
       onDelete(writing.id);
     } else {
-      supabase.from("writings").update({ content: text }).eq("id", writing.id);
+      supabase.from("writings").update({ content: text }).eq("id", writing.id)
+        .then(({ error }) => { if (error) console.error("save failed:", error.message); });
     }
   };
+
   const handleMouseDown = (e) => {
     if (isEditingRef.current) return;
     if (e.target.closest(".delete-btn")) return;
@@ -606,19 +616,27 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
       data-id={writing.id}
       onMouseDown={handleMouseDown}
     >
-      <div
-        ref={ref}
-        className="writing-node-text"
-        contentEditable={isEditing}
-        suppressContentEditableWarning
-        onInput={handleInput}
-        onKeyDown={(e) => { if (e.key === "Escape") ref.current.blur(); }}
-        onBlur={handleBlur}
-        spellCheck={false}
-        style={{ fontSize: writing.font_size ? `${writing.font_size}px` : "20px" }}
-      >
-        {writing.content}
-      </div>
+      {}
+      {isEditing ? (
+        <div
+          ref={ref}
+          className="writing-node-text"
+          contentEditable
+          suppressContentEditableWarning
+          onInput={handleInput}
+          onKeyDown={(e) => { if (e.key === "Escape") ref.current.blur(); }}
+          onBlur={handleBlur}
+          spellCheck={false}
+          style={{ fontSize: writing.font_size ? `${writing.font_size}px` : "20px" }}
+        />
+      ) : (
+        <div
+          ref={ref}
+          className="writing-node-text"
+          style={{ fontSize: writing.font_size ? `${writing.font_size}px` : "20px" }}
+          dangerouslySetInnerHTML={{ __html: writing.content }}
+        />
+      )}
       {writing.author_name && (
         <div className="writing-author">~ {writing.author_name}</div>
       )}
@@ -701,7 +719,6 @@ function ThemeModal({ currentThemeId, onSelect, onClose }) {
   );
 }
 
-// tracks how many people are currently on the
 function useOnlineCount() {
   const [count, setCount] = useState(1);
   useEffect(() => {
@@ -722,7 +739,6 @@ function useOnlineCount() {
   return count;
 }
 
-//shows toast when someone joins/leaves
 function useJoinEvents(userName) {
   const [events, setEvents] = useState([]);
   const myKey = useRef(crypto.randomUUID());
@@ -787,14 +803,11 @@ function JoinToasts({ events }) {
   );
 }
 
-//channel is created once, presence is
-//   updated via track() when isTyping changes rather than re-subscribing
 function useTypingUsers(userName, isTyping) {
   const [typingUsers, setTypingUsers] = useState([]);
   const myKey = useRef(crypto.randomUUID());
   const channelRef = useRef(null);
 
-  // Subscribe once when userName is available
   useEffect(() => {
     if (!userName) return;
     const channel = supabase.channel("typing-indicator", {
@@ -822,7 +835,6 @@ function useTypingUsers(userName, isTyping) {
     };
   }, [userName]);
 
-  // Update presence whenever isTyping changes — no re-subscribe needed
   useEffect(() => {
     if (!channelRef.current || !userName) return;
     channelRef.current.track({ name: userName, typing: isTyping });
@@ -1064,7 +1076,6 @@ function PenSizeDot({ size, selected, onClick }) {
   );
 }
 
-//syncs play/pause/track state via broadcast only
 function useLofiSync(userName) {
   const [playing, setPlaying] = useState(false);
   const [trackIdx, setTrackIdx] = useState(0);
@@ -1074,7 +1085,6 @@ function useLofiSync(userName) {
   useEffect(() => {
     const channel = supabase.channel("lofi-sync");
     channelRef.current = channel;
-
     channel
       .on("broadcast", { event: "lofi" }, ({ payload }) => {
         isSyncingRef.current = true;
@@ -1084,7 +1094,6 @@ function useLofiSync(userName) {
         setTimeout(() => { isSyncingRef.current = false; }, 50);
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -1107,12 +1116,9 @@ function useLofiSync(userName) {
   return { playing, trackIdx, togglePlay, selectTrack };
 }
 
-// audio lives in App so it never unmounts 
 function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
   const ref = useRef(null);
-  const track = LOFI_TRACKS[trackIdx];
 
-  // Close on outside click
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
     setTimeout(() => document.addEventListener("mousedown", h), 10);
@@ -1122,14 +1128,10 @@ function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
   return (
     <div ref={ref} className="lofi-dropdown" onClick={(e) => e.stopPropagation()}>
       <p className="picker-label">lofi radio</p>
-
-      {/* play/pause */}
       <button className="lofi-play-btn" onClick={onToggle}>
         <span style={{ fontSize: 13 }}>{playing ? "||" : "▶"}</span>
         <span style={{ flex: 1, textAlign: "left" }}>{playing ? "now playing" : "paused"}</span>
       </button>
-
-      {/* track list */}
       <p className="picker-label" style={{ marginTop: 4 }}>Stations</p>
       {LOFI_TRACKS.map((t, i) => (
         <button
@@ -1137,12 +1139,10 @@ function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
           className={`lofi-track-btn${trackIdx === i ? " active" : ""}`}
           onClick={() => onSelectTrack(i)}
         >
-          
           <span style={{ flex: 1, textAlign: "left", fontFamily: "'Patrick Hand', cursive", fontSize: 12 }}>{t.label}</span>
           {trackIdx === i && <span style={{ color: "#ff6b9d", fontSize: 10 }}>●</span>}
         </button>
       ))}
-
       <p style={{ fontSize: 9, color: "#cca0b8", textAlign: "center", marginTop: 8, fontFamily: "'Patrick Hand', cursive" }}>
         synced for everyone • nightride.fm
       </p>
@@ -1150,7 +1150,6 @@ function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
   );
 }
 
-// ── useReactions: fire-and-forget broadcast, no DB needed ─────────────────────
 function useReactions(userName) {
   const [bursts, setBursts] = useState([]);
   const channelRef = useRef(null);
@@ -1170,12 +1169,10 @@ function useReactions(userName) {
   }, []);
 
   const sendReaction = useCallback((emoji) => {
-    // show the burst locally immediately (broadcast doesn't echo back to sender)
     const id = crypto.randomUUID();
     const x = 10 + Math.random() * 80;
     setBursts(prev => [...prev, { id, emoji, name: userName || "someone", x }]);
     setTimeout(() => setBursts(prev => prev.filter(b => b.id !== id)), 2800);
-    // broadcast to everyone else
     channelRef.current?.send({
       type: "broadcast",
       event: "reaction",
@@ -1186,7 +1183,6 @@ function useReactions(userName) {
   return { bursts, sendReaction };
 }
 
-// ── ReactionBurst: single floating emoji that animates up ─────────────────────
 function ReactionBurst({ burst }) {
   return (
     <div style={{
@@ -1217,7 +1213,6 @@ function ReactionBurst({ burst }) {
   );
 }
 
-//ReactionBar: fixed bottom-center strip of reaction buttons
 function ReactionBar({ onReact }) {
   return (
     <div style={{
@@ -1287,12 +1282,10 @@ export default function App() {
   const inkColorRef    = useRef(inkColor);
   const inkFontRef     = useRef(inkFont);
 
-  // Pass isTyping as a boolean — the hook handles its own channel lifecycle
   const typingUsers = useTypingUsers(userName, !!activeInput);
   const { bursts, sendReaction } = useReactions(userName);
   const { playing: lofiPlaying, trackIdx: lofiTrack, togglePlay: lofiToggle, selectTrack: lofiSelect } = useLofiSync(userName);
 
-  // Keep audio in sync — lives in App so closing the dropdown never kills playback
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -1303,6 +1296,7 @@ export default function App() {
       audio.pause();
     }
   }, [lofiPlaying, lofiTrack]);
+
   const [showLofi, setShowLofi] = useState(false);
 
   useEffect(() => { editingIdRef.current   = editingId;   }, [editingId]);
@@ -1389,7 +1383,13 @@ export default function App() {
         setWritings(prev => prev.find(w => w.id === payload.new.id) ? prev : [...prev, payload.new]);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "writings" }, (payload) => {
-        setWritings(prev => prev.map(w => w.id === payload.new.id ? payload.new : w));
+        //  skip applying remote updates to whichever node is being edited
+        //    so realtime echoes of the user's own saves never clobber their typing
+        setWritings(prev => prev.map(w =>
+          (w.id === payload.new.id && editingIdRef.current !== payload.new.id)
+            ? payload.new
+            : w
+        ));
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "writings" }, (payload) => {
         setWritings(prev => prev.filter(w => w.id !== payload.old.id));
@@ -1627,39 +1627,30 @@ export default function App() {
 
         .mode-toggle-wrap { position: relative; overflow: visible; display: flex; align-items: center; }
         .mode-toggle {
-          position: relative;
-          display: flex; align-items: center;
+          position: relative; display: flex; align-items: center;
           background: rgba(255,240,248,0.9);
           border: 1.5px solid rgba(255,180,210,0.5);
-          border-radius: 20px;
-          padding: 3px;
-          gap: 0;
-          height: 32px;
+          border-radius: 20px; padding: 3px; gap: 0; height: 32px;
         }
         .mode-toggle-pill {
-          position: absolute;
-          top: 3px; left: 3px;
+          position: absolute; top: 3px; left: 3px;
           width: 48px; height: 24px;
           background: linear-gradient(135deg, #ff85a2, #ff6b9d);
           border-radius: 14px;
           transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
           box-shadow: 0 2px 8px rgba(255,107,157,0.4);
-          pointer-events: none;
-          z-index: 0;
+          pointer-events: none; z-index: 0;
         }
         .mode-toggle-pill.draw { transform: translateX(48px); }
         .mode-toggle-btn {
           position: relative; z-index: 1;
           width: 48px; height: 24px;
-          border: none; background: none;
-          border-radius: 14px;
+          border: none; background: none; border-radius: 14px;
           font-size: 12px; font-family: 'Patrick Hand', cursive;
           font-weight: 600; letter-spacing: 0.2px;
           cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          transition: color 0.15s;
-          flex-shrink: 0;
-          color: #b080a0;
+          transition: color 0.15s; flex-shrink: 0; color: #b080a0;
         }
         .mode-toggle-btn.active { color: white; }
         .mode-toggle-btn:hover:not(.active) { color: #8b4060; }
@@ -1678,8 +1669,7 @@ export default function App() {
         .pen-color-dot {
           width: 26px; height: 26px; border-radius: 50%;
           border: 2.5px solid transparent;
-          cursor: pointer; transition: transform 0.12s, border-color 0.12s;
-          flex-shrink: 0;
+          cursor: pointer; transition: transform 0.12s, border-color 0.12s; flex-shrink: 0;
         }
         .pen-color-dot:hover { transform: scale(1.2); }
         .pen-color-dot.selected { border-color: #ff6b9d; transform: scale(1.12); }
@@ -1944,6 +1934,7 @@ export default function App() {
           color: #a07888; transition: all 0.15s; flex-shrink: 0;
         }
         .gif-load-more:hover { background: rgba(255,210,230,0.4); color: #8b4060; }
+
         .lofi-dropdown {
           position: absolute; top: calc(100% + 10px);
           left: 50%; transform: translateX(-50%);
@@ -1968,19 +1959,16 @@ export default function App() {
           display: flex; align-items: center; gap: 6px;
           width: 100%; padding: 6px 8px;
           background: none; border: 1.5px solid transparent;
-          border-radius: 10px; cursor: pointer;
-          transition: all 0.12s;
+          border-radius: 10px; cursor: pointer; transition: all 0.12s;
         }
         .lofi-track-btn:hover { background: rgba(255,210,230,0.3); border-color: rgba(255,180,210,0.3); }
         .lofi-track-btn.active { border-color: #ff85a2; background: rgba(255,210,230,0.2); }
-
       `}</style>
 
       <div className="toolbar">
         <span className="toolbar-title">shared notebook</span>
 
         <div className="toolbar-divider" />
-        {/* Visitor counter + online count live in the toolbar */}
         <OnlineBadge count={onlineCount} />
 
         <div className="toolbar-divider" />
@@ -2036,7 +2024,6 @@ export default function App() {
         </div>
 
         <div className="toolbar-divider" />
-
         <div className="mode-toggle-wrap">
           <div className="mode-toggle" onClick={(e) => e.stopPropagation()}>
             <div className={`mode-toggle-pill${isDrawingMode ? " draw" : ""}`} />
@@ -2188,7 +2175,6 @@ export default function App() {
         }} />
       )}
 
-      {/* persistent audio — always mounted so closing the lofi dropdown doesn't stop music */}
       <audio ref={audioRef} preload="none" />
 
       <JoinToasts events={joinEvents} />
@@ -2215,3 +2201,4 @@ export default function App() {
     </>
   );
 }
+
