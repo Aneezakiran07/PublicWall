@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { ssrDynamicImportKey } from "vite/runtime";
 
 const GIPHY_KEY = import.meta.env.VITE_GIPHY;
 const SUPABASE_URL = import.meta.env.VITE_URL;
@@ -37,6 +36,7 @@ const LOFI_TRACKS = [
   { url: "https://stream.nightride.fm/datawave.mp3",   label: "datawave fm" },
   { url: "https://stream.nightride.fm/spacesynth.mp3", label: "spacesynth fm" },
 ];
+
 
 const STICKER_PACKS = [
   { label: "😀 Smileys", stickers: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","😉","😊","😇","🥰","😍","🤩","😘","😗","☺️","😚","😙","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤫","🤔","🤐","🤨","😐","😑","😶","😏","😒","🙄","😬","🤥","😌","😔","😪","🤤","😴","😷","🤒","🤕","🤢","🤮","🤧","🥵","🥶","🥴","😵","🤯","🤠","🥳","🥸","😎","🤓","🧐","😕","😟","🙁","☹️","😮","😯","😲","😳","🥺","😦","😧","😨","😰","😥","😢","😭","😱","😖","😣","😞","😓","😩","😫","🥱","😤","😡","😠","🤬","😈","👿","💀","☠️","💩","🤡","👹","👺","👻","👽","👾","🤖"] },
@@ -485,7 +485,10 @@ function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
     <div
       ref={wrapRef}
       className="media-node"
-      style={{ left: item.position_x, top: item.position_y }}
+      style={{
+      left: item.position_x <= 100 ? `${item.position_x}%` : item.position_x,
+      top:  item.position_y <= 100 ? `${item.position_y}%` : item.position_y,
+    }}
       onMouseDown={handleMouseDown}
       data-sticker-id={item.id}
     >
@@ -500,12 +503,11 @@ function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
   );
 }
 
-function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pageRef }) {
+function WritingNode({ writing, isEditing, onDelete, onDragEnd, pageRef }) {
   const ref = useRef(null);
   const wrapRef = useRef(null);
   const saveTimer = useRef(null);
   const isEditingRef = useRef(isEditing);
-  const onStartEditRef = useRef(onStartEdit);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const hasDragged = useRef(false);
@@ -513,24 +515,18 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, fontSize: 20 });
 
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
-  useEffect(() => { onStartEditRef.current = onStartEdit; }, [onStartEdit]);
-
-  // Focus & move cursor to end when entering edit mode
   useEffect(() => {
-  if (isEditing && ref.current) {
-    // populate the empty contentEditable with existing text before focusing
-    if (!ref.current.innerText) {
-      ref.current.innerText = writing.content;
+    if (isEditing && ref.current) {
+      ref.current.focus();
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(ref.current);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
     }
-    ref.current.focus();
-    const range = document.createRange();
-    const sel = window.getSelection();
-    range.selectNodeContents(ref.current);
-    range.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(range);
-  }
-}, [isEditing]);
+  }, [isEditing]);
+
   const handleInput = () => {
     const text = ref.current.innerText;
     clearTimeout(saveTimer.current);
@@ -538,21 +534,19 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
       supabase.from("writings").update({ content: text }).eq("id", writing.id);
     }, 500);
   };
-
   const handleBlur = () => {
     const text = ref.current?.innerText?.trim();
     clearTimeout(saveTimer.current);
     if (!text) {
       onDelete(writing.id);
     } else {
-      supabase.from("writings").update({ content: text }).eq("id", writing.id)
-        .then(({ error }) => { if (error) console.error("save failed:", error.message); });
+      supabase.from("writings").update({ content: text }).eq("id", writing.id);
     }
   };
 
   const handleMouseDown = (e) => {
     if (isEditingRef.current) return;
-    if (e.target.closest(".delete-btn")) return;
+    if (e.target.closest(".delete-btn") || e.target.closest(".resize-handle-text")) return;
     e.preventDefault(); e.stopPropagation();
     dragging.current = true; hasDragged.current = false;
     const rect = wrapRef.current.getBoundingClientRect();
@@ -565,7 +559,7 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
       hasDragged.current = true;
       const pageRect = pageRef.current.getBoundingClientRect();
       wrapRef.current.style.left = `${ev.clientX - pageRect.left - dragOffset.current.x}px`;
-      wrapRef.current.style.top  = `${ev.clientY - pageRect.top  - dragOffset.current.y}px`;
+      wrapRef.current.style.top  = `${ev.clientY - pageRect.top  - dragOffset.current.y + window.scrollY}px`;
     };
     const onUp = (ev) => {
       if (!dragging.current) return;
@@ -577,7 +571,7 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
       document.removeEventListener("mouseup", onUp);
       if (hasDragged.current) {
         const pageRect = pageRef.current.getBoundingClientRect();
-        onDragEnd(writing.id, ev.clientX - pageRect.left - dragOffset.current.x, ev.clientY - pageRect.top - dragOffset.current.y);
+        onDragEnd(writing.id, ev.clientX - pageRect.left - dragOffset.current.x, ev.clientY - pageRect.top - dragOffset.current.y + window.scrollY);
       }
     };
     document.addEventListener("mousemove", onMove);
@@ -611,32 +605,29 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
   return (
     <div
       ref={wrapRef}
-      className={`writing-node ${isEditing ? "editing" : ""}`}
-      style={{ left: writing.position_x, top: writing.position_y, color: writing.font_color, fontFamily: writing.font_style }}
+      className={`writing-node${isEditing ? " editing" : ""}`}
+      style={{
+        left: writing.position_x <= 100 ? `${writing.position_x}%` : writing.position_x,
+        top:  writing.position_y <= 100 ? `${writing.position_y}%` : writing.position_y,
+        color: writing.font_color,
+        fontFamily: writing.font_style,
+      }}
       data-id={writing.id}
       onMouseDown={handleMouseDown}
     >
-      {}
-      {isEditing ? (
-        <div
-          ref={ref}
-          className="writing-node-text"
-          contentEditable
-          suppressContentEditableWarning
-          onInput={handleInput}
-          onKeyDown={(e) => { if (e.key === "Escape") ref.current.blur(); }}
-          onBlur={handleBlur}
-          spellCheck={false}
-          style={{ fontSize: writing.font_size ? `${writing.font_size}px` : "20px" }}
-        />
-      ) : (
-        <div
-          ref={ref}
-          className="writing-node-text"
-          style={{ fontSize: writing.font_size ? `${writing.font_size}px` : "20px" }}
-          dangerouslySetInnerHTML={{ __html: writing.content }}
-        />
-      )}
+      <div
+        ref={ref}
+        className="writing-node-text"
+        contentEditable={isEditing}
+        suppressContentEditableWarning
+        onInput={handleInput}
+        onKeyDown={(e) => { if (e.key === "Escape") ref.current.blur(); }}
+        onBlur={handleBlur}
+        spellCheck={false}
+        style={{ fontSize: writing.font_size ? `${writing.font_size}px` : "20px" }}
+      >
+        {writing.content}
+      </div>
       {writing.author_name && (
         <div className="writing-author">~ {writing.author_name}</div>
       )}
@@ -719,6 +710,7 @@ function ThemeModal({ currentThemeId, onSelect, onClose }) {
   );
 }
 
+// ── useOnlineCount: tracks how many people are currently on the page ──────────
 function useOnlineCount() {
   const [count, setCount] = useState(1);
   useEffect(() => {
@@ -739,6 +731,7 @@ function useOnlineCount() {
   return count;
 }
 
+// ── useJoinEvents: shows toast when someone joins/leaves ──────────────────────
 function useJoinEvents(userName) {
   const [events, setEvents] = useState([]);
   const myKey = useRef(crypto.randomUUID());
@@ -803,11 +796,14 @@ function JoinToasts({ events }) {
   );
 }
 
+// ── useTypingUsers: fixed version — channel is created once, presence is
+//   updated via track() when isTyping changes rather than re-subscribing. ──────
 function useTypingUsers(userName, isTyping) {
   const [typingUsers, setTypingUsers] = useState([]);
   const myKey = useRef(crypto.randomUUID());
   const channelRef = useRef(null);
 
+  // Subscribe once when userName is available
   useEffect(() => {
     if (!userName) return;
     const channel = supabase.channel("typing-indicator", {
@@ -835,6 +831,7 @@ function useTypingUsers(userName, isTyping) {
     };
   }, [userName]);
 
+  // Update presence whenever isTyping changes — no re-subscribe needed
   useEffect(() => {
     if (!channelRef.current || !userName) return;
     channelRef.current.track({ name: userName, typing: isTyping });
@@ -864,6 +861,7 @@ function TypingIndicator({ users }) {
   );
 }
 
+// ── OnlineBadge: shows live count in the toolbar ─────────────────────────────
 function OnlineBadge({ count }) {
   return (
     <div className="online-badge" title={`${count} ${count === 1 ? "person" : "people"} online`}>
@@ -873,6 +871,7 @@ function OnlineBadge({ count }) {
   );
 }
 
+// ── DrawingCanvas ──────────────────────────────────────────────────────────────
 function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrokeComplete, onDrawStart, onDeleteStroke }) {
   const canvasRef = useRef(null);
   const isMouseDown = useRef(false);
@@ -887,25 +886,20 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
       const newWidth = page.offsetWidth;
       const newHeight = page.scrollHeight;
       if (canvas.width === newWidth && canvas.height === newHeight) return;
-      const imageData = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+      // just resize — the strokes useEffect below will redraw from state
       canvas.width = newWidth;
       canvas.height = newHeight;
-      canvas.getContext("2d").putImageData(imageData, 0, 0);
     };
     resize();
-    window.addEventListener("resize", resize);
     const observer = new ResizeObserver(resize);
     if (pageRef.current) observer.observe(pageRef.current);
-    return () => {
-      window.removeEventListener("resize", resize);
-      observer.disconnect();
-    };
+    return () => { observer.disconnect(); };
   }, [pageRef]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: false });
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     strokes.forEach(stroke => {
       if (!stroke.points || stroke.points.length < 2) return;
@@ -942,7 +936,7 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     isMouseDown.current = true;
     const pos = getPos(e);
     currentPath.current = [pos];
-    const ctx = canvasRef.current.getContext("2d");
+    const ctx = canvasRef.current.getContext("2d", { willReadFrequently: false });
     ctx.beginPath();
     ctx.strokeStyle = penColor;
     ctx.lineWidth = penSize;
@@ -956,7 +950,7 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     e.preventDefault();
     const pos = getPos(e);
     currentPath.current.push(pos);
-    const ctx = canvasRef.current.getContext("2d");
+    const ctx = canvasRef.current.getContext("2d", { willReadFrequently: false });
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
   };
@@ -1014,8 +1008,7 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
         style={{
           position: "absolute", top: 0, left: 0, zIndex: 15,
           pointerEvents: isDrawing ? "all" : "none",
-          //cursor: isDrawing ? `url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cg%20transform%3D%22rotate%28-45%2016%2016%29%22%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23e91e8c%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Cpolygon%20points%3D%2213%2C20%2019%2C20%2016%2C28%22%20fill%3D%22%231a1a2e%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%225%22%20rx%3D%222%22%20fill%3D%22%23ff85a2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") 2 30, crosshair` : "default",
-          cursor: isDrawing ? "crosshair" : "default",
+          cursor: isDrawing ? `url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cg%20transform%3D%22rotate%28-45%2016%2016%29%22%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23e91e8c%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Cpolygon%20points%3D%2213%2C20%2019%2C20%2016%2C28%22%20fill%3D%22%231a1a2e%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%225%22%20rx%3D%222%22%20fill%3D%22%23ff85a2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") 2 30, crosshair` : "default",
           touchAction: "none",
         }}
         onMouseDown={startDraw}
@@ -1077,6 +1070,7 @@ function PenSizeDot({ size, selected, onClick }) {
   );
 }
 
+// ── useLofiSync: syncs play/pause/track state via broadcast only ──────────────
 function useLofiSync(userName) {
   const [playing, setPlaying] = useState(false);
   const [trackIdx, setTrackIdx] = useState(0);
@@ -1086,6 +1080,7 @@ function useLofiSync(userName) {
   useEffect(() => {
     const channel = supabase.channel("lofi-sync");
     channelRef.current = channel;
+
     channel
       .on("broadcast", { event: "lofi" }, ({ payload }) => {
         isSyncingRef.current = true;
@@ -1095,6 +1090,7 @@ function useLofiSync(userName) {
         setTimeout(() => { isSyncingRef.current = false; }, 50);
       })
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -1117,9 +1113,12 @@ function useLofiSync(userName) {
   return { playing, trackIdx, togglePlay, selectTrack };
 }
 
+// ── LofiPlayer: pure UI dropdown — audio lives in App so it never unmounts ────
 function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
   const ref = useRef(null);
+  const track = LOFI_TRACKS[trackIdx];
 
+  // Close on outside click
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
     setTimeout(() => document.addEventListener("mousedown", h), 10);
@@ -1129,10 +1128,14 @@ function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
   return (
     <div ref={ref} className="lofi-dropdown" onClick={(e) => e.stopPropagation()}>
       <p className="picker-label">lofi radio</p>
+
+      {/* play/pause */}
       <button className="lofi-play-btn" onClick={onToggle}>
         <span style={{ fontSize: 13 }}>{playing ? "||" : "▶"}</span>
         <span style={{ flex: 1, textAlign: "left" }}>{playing ? "now playing" : "paused"}</span>
       </button>
+
+      {/* track list */}
       <p className="picker-label" style={{ marginTop: 4 }}>Stations</p>
       {LOFI_TRACKS.map((t, i) => (
         <button
@@ -1140,10 +1143,12 @@ function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
           className={`lofi-track-btn${trackIdx === i ? " active" : ""}`}
           onClick={() => onSelectTrack(i)}
         >
+          
           <span style={{ flex: 1, textAlign: "left", fontFamily: "'Patrick Hand', cursive", fontSize: 12 }}>{t.label}</span>
           {trackIdx === i && <span style={{ color: "#ff6b9d", fontSize: 10 }}>●</span>}
         </button>
       ))}
+
       <p style={{ fontSize: 9, color: "#cca0b8", textAlign: "center", marginTop: 8, fontFamily: "'Patrick Hand', cursive" }}>
         synced for everyone • nightride.fm
       </p>
@@ -1151,6 +1156,7 @@ function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
   );
 }
 
+// ── useReactions: fire-and-forget broadcast, no DB needed ─────────────────────
 function useReactions(userName) {
   const [bursts, setBursts] = useState([]);
   const channelRef = useRef(null);
@@ -1170,10 +1176,12 @@ function useReactions(userName) {
   }, []);
 
   const sendReaction = useCallback((emoji) => {
+    // show the burst locally immediately (broadcast doesn't echo back to sender)
     const id = crypto.randomUUID();
     const x = 10 + Math.random() * 80;
     setBursts(prev => [...prev, { id, emoji, name: userName || "someone", x }]);
     setTimeout(() => setBursts(prev => prev.filter(b => b.id !== id)), 2800);
+    // broadcast to everyone else
     channelRef.current?.send({
       type: "broadcast",
       event: "reaction",
@@ -1184,6 +1192,7 @@ function useReactions(userName) {
   return { bursts, sendReaction };
 }
 
+// ── ReactionBurst: single floating emoji that animates up ─────────────────────
 function ReactionBurst({ burst }) {
   return (
     <div style={{
@@ -1214,6 +1223,7 @@ function ReactionBurst({ burst }) {
   );
 }
 
+// ── ReactionBar: fixed bottom-center strip of reaction buttons ────────────────
 function ReactionBar({ onReact }) {
   return (
     <div style={{
@@ -1277,16 +1287,17 @@ export default function App() {
   const pageRef        = useRef(null);
   const inputRef       = useRef(null);
   const audioRef       = useRef(null);
-  const editingIdRef   = useRef(null);
   const inputTextRef   = useRef("");
   const activeInputRef = useRef(null);
   const inkColorRef    = useRef(inkColor);
   const inkFontRef     = useRef(inkFont);
 
+  // Pass isTyping as a boolean — the hook handles its own channel lifecycle
   const typingUsers = useTypingUsers(userName, !!activeInput);
   const { bursts, sendReaction } = useReactions(userName);
   const { playing: lofiPlaying, trackIdx: lofiTrack, togglePlay: lofiToggle, selectTrack: lofiSelect } = useLofiSync(userName);
 
+  // Keep audio in sync — lives in App so closing the dropdown never kills playback
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -1297,10 +1308,8 @@ export default function App() {
       audio.pause();
     }
   }, [lofiPlaying, lofiTrack]);
-
   const [showLofi, setShowLofi] = useState(false);
 
-  useEffect(() => { editingIdRef.current   = editingId;   }, [editingId]);
   useEffect(() => { inputTextRef.current   = inputText;   }, [inputText]);
   useEffect(() => { activeInputRef.current = activeInput; }, [activeInput]);
   useEffect(() => { inkColorRef.current    = inkColor;    }, [inkColor]);
@@ -1384,13 +1393,7 @@ export default function App() {
         setWritings(prev => prev.find(w => w.id === payload.new.id) ? prev : [...prev, payload.new]);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "writings" }, (payload) => {
-        //  skip applying remote updates to whichever node is being edited
-        //    so realtime echoes of the user's own saves never clobber their typing
-        setWritings(prev => prev.map(w =>
-          (w.id === payload.new.id && editingIdRef.current !== payload.new.id)
-            ? payload.new
-            : w
-        ));
+        setWritings(prev => prev.map(w => w.id === payload.new.id ? payload.new : w));
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "writings" }, (payload) => {
         setWritings(prev => prev.filter(w => w.id !== payload.old.id));
@@ -1460,8 +1463,10 @@ export default function App() {
         return;
       }
       setEditingId(null);
-      const rect = pageRef.current.getBoundingClientRect();
-      setActiveInput({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
+      const rect   = pageRef.current.getBoundingClientRect();
+      const scrollY = window.scrollY || document.documentElement.scrollTop;
+      const absY    = e.clientY + scrollY - (rect.top + scrollY);
+      setActiveInput({ x: ((e.clientX - rect.left) / rect.width) * 100, y: (absY / pageRef.current.scrollHeight) * 100 });
       setInputText("");
       setTimeout(() => inputRef.current?.focus(), 50);
     };
@@ -1475,8 +1480,8 @@ export default function App() {
     if (e.key === "Enter" && text.trim() && pos) {
       const writing = {
         content:     text.trim(),
-        position_x:  Math.min((pos.x / 100) * (pageRef.current?.offsetWidth || 900), (pageRef.current?.offsetWidth || 900) - 160),
-        position_y:  (pos.y / 100) * (pageRef.current?.scrollHeight || 600),
+        position_x:  Math.max(0, Math.min(pos.x, 88)),
+        position_y:  pos.y,
         font_color:  inkColorRef.current,
         font_style:  inkFontRef.current,
         author_name: userName || null,
@@ -1496,11 +1501,12 @@ export default function App() {
   };
 
   const handleDragEnd = async (id, newX, newY) => {
-    const pageW    = pageRef.current?.offsetWidth || 900;
-    const clampedX = Math.max(0, Math.min(newX, pageW - 160));
-    const clampedY = Math.max(0, newY);
-    setWritings((prev) => prev.map((w) => w.id === id ? { ...w, position_x: clampedX, position_y: clampedY } : w));
-    await supabase.from("writings").update({ position_x: clampedX, position_y: clampedY }).eq("id", id);
+    const pageW  = pageRef.current?.offsetWidth  || 900;
+    const pageH  = pageRef.current?.scrollHeight || 600;
+    const pctX   = Math.max(0, Math.min((newX / pageW) * 100, 90));
+    const pctY   = Math.max(0, (newY / pageH) * 100);
+    setWritings((prev) => prev.map((w) => w.id === id ? { ...w, position_x: pctX, position_y: pctY } : w));
+    await supabase.from("writings").update({ position_x: pctX, position_y: pctY }).eq("id", id);
   };
 
   const handlePlaceMedia = useCallback(async ({ type, content }) => {
@@ -1511,11 +1517,13 @@ export default function App() {
     const x = centerXpx - 40;
     const y = (centerYpx / 100) * page.scrollHeight - 40;
     const defaultSize = type === "emoji" ? 64 : 120;
+    const pctX = Math.max(0, Math.min((x / page.offsetWidth) * 100, 85));
+    const pctY = Math.max(0, (y / page.scrollHeight) * 100);
     const item = {
       media_type:  type,
       content:     content,
-      position_x:  Math.max(0, x),
-      position_y:  Math.max(20, y),
+      position_x:  pctX,
+      position_y:  pctY,
       size:        defaultSize,
     };
     const { data } = await supabase.from("media_items").insert([item]).select().single();
@@ -1529,11 +1537,12 @@ export default function App() {
   };
 
   const handleMediaDragEnd = async (id, newX, newY) => {
-    const pageW = pageRef.current?.offsetWidth || 900;
-    const clampedX = Math.max(0, Math.min(newX, pageW - 50));
-    const clampedY = Math.max(0, newY);
-    setMediaItems((prev) => prev.map((m) => m.id === id ? { ...m, position_x: clampedX, position_y: clampedY } : m));
-    await supabase.from("media_items").update({ position_x: clampedX, position_y: clampedY }).eq("id", id);
+    const pageW  = pageRef.current?.offsetWidth  || 900;
+    const pageH  = pageRef.current?.scrollHeight || 600;
+    const pctX   = Math.max(0, Math.min((newX / pageW) * 100, 90));
+    const pctY   = Math.max(0, (newY / pageH) * 100);
+    setMediaItems((prev) => prev.map((m) => m.id === id ? { ...m, position_x: pctX, position_y: pctY } : m));
+    await supabase.from("media_items").update({ position_x: pctX, position_y: pctY }).eq("id", id);
   };
 
   const handleMediaResize = async (id, newSize) => {
@@ -1556,7 +1565,7 @@ export default function App() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 24px 16px;
+          padding: 16px 8px;
           font-family: 'Caveat', cursive;
           transition: background 0.5s ease;
         }
@@ -1569,10 +1578,11 @@ export default function App() {
           border-radius: 40px; padding: 0 20px;
           height: 52px;
           box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-          flex-wrap: nowrap; justify-content: center;
+          flex-wrap: wrap; justify-content: center;
           position: sticky; top: 16px;
           z-index: 1000; overflow: visible;
           backdrop-filter: blur(8px);
+          max-width: 100%; height: auto; min-height: 52px; padding: 8px 16px; gap: 8px;
         }
         .toolbar-title { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 600; color: #4a2838; letter-spacing: -0.5px; white-space: nowrap; }
         .toolbar-divider { width: 1px; height: 20px; background: rgba(255,160,200,0.35); flex-shrink: 0; }
@@ -1628,30 +1638,39 @@ export default function App() {
 
         .mode-toggle-wrap { position: relative; overflow: visible; display: flex; align-items: center; }
         .mode-toggle {
-          position: relative; display: flex; align-items: center;
+          position: relative;
+          display: flex; align-items: center;
           background: rgba(255,240,248,0.9);
           border: 1.5px solid rgba(255,180,210,0.5);
-          border-radius: 20px; padding: 3px; gap: 0; height: 32px;
+          border-radius: 20px;
+          padding: 3px;
+          gap: 0;
+          height: 32px;
         }
         .mode-toggle-pill {
-          position: absolute; top: 3px; left: 3px;
+          position: absolute;
+          top: 3px; left: 3px;
           width: 48px; height: 24px;
           background: linear-gradient(135deg, #ff85a2, #ff6b9d);
           border-radius: 14px;
           transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
           box-shadow: 0 2px 8px rgba(255,107,157,0.4);
-          pointer-events: none; z-index: 0;
+          pointer-events: none;
+          z-index: 0;
         }
         .mode-toggle-pill.draw { transform: translateX(48px); }
         .mode-toggle-btn {
           position: relative; z-index: 1;
           width: 48px; height: 24px;
-          border: none; background: none; border-radius: 14px;
+          border: none; background: none;
+          border-radius: 14px;
           font-size: 12px; font-family: 'Patrick Hand', cursive;
           font-weight: 600; letter-spacing: 0.2px;
           cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          transition: color 0.15s; flex-shrink: 0; color: #b080a0;
+          transition: color 0.15s;
+          flex-shrink: 0;
+          color: #b080a0;
         }
         .mode-toggle-btn.active { color: white; }
         .mode-toggle-btn:hover:not(.active) { color: #8b4060; }
@@ -1670,7 +1689,8 @@ export default function App() {
         .pen-color-dot {
           width: 26px; height: 26px; border-radius: 50%;
           border: 2.5px solid transparent;
-          cursor: pointer; transition: transform 0.12s, border-color 0.12s; flex-shrink: 0;
+          cursor: pointer; transition: transform 0.12s, border-color 0.12s;
+          flex-shrink: 0;
         }
         .pen-color-dot:hover { transform: scale(1.2); }
         .pen-color-dot.selected { border-color: #ff6b9d; transform: scale(1.12); }
@@ -1788,7 +1808,6 @@ export default function App() {
           cursor: grab; animation: inkDrop 0.3s ease-out;
           user-select: none; max-width: min(380px, calc(100% - 20px));
         }
-        .writing-node.editing { cursor: text; }
         .writing-node .resize-handle-text {
           position: absolute; bottom: -8px; right: -8px;
           width: 16px; height: 16px;
@@ -1808,6 +1827,7 @@ export default function App() {
           text-shadow: 0 1px 1px rgba(255,255,255,0.3);
           min-height: 1.2em; min-width: 4px;
         }
+        .writing-node.editing { cursor: text; }
         .writing-node:not(.editing):hover .writing-node-text { background: rgba(255,230,80,0.3); }
         .writing-node.editing .writing-node-text {
           background: rgba(255,255,255,0.7);
@@ -1935,7 +1955,6 @@ export default function App() {
           color: #a07888; transition: all 0.15s; flex-shrink: 0;
         }
         .gif-load-more:hover { background: rgba(255,210,230,0.4); color: #8b4060; }
-
         .lofi-dropdown {
           position: absolute; top: calc(100% + 10px);
           left: 50%; transform: translateX(-50%);
@@ -1960,16 +1979,44 @@ export default function App() {
           display: flex; align-items: center; gap: 6px;
           width: 100%; padding: 6px 8px;
           background: none; border: 1.5px solid transparent;
-          border-radius: 10px; cursor: pointer; transition: all 0.12s;
+          border-radius: 10px; cursor: pointer;
+          transition: all 0.12s;
         }
         .lofi-track-btn:hover { background: rgba(255,210,230,0.3); border-color: rgba(255,180,210,0.3); }
         .lofi-track-btn.active { border-color: #ff85a2; background: rgba(255,210,230,0.2); }
+
+
+        /* ── Responsive ───────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+          .toolbar-title { font-size: 17px; }
+          .toolbar-label { display: none; }
+          .tb-btn { height: 28px; padding: 0 10px; font-size: 12px; }
+          .tb-btn.wide { width: 100px; }
+          .online-badge { padding: 3px 8px; }
+          .online-count { font-size: 11px; }
+          .toolbar-divider { height: 16px; }
+          .mode-toggle-btn { width: 40px; font-size: 11px; }
+          .mode-toggle-pill { width: 40px; }
+          .mode-toggle-pill.draw { transform: translateX(40px); }
+          .picker-popup, .draw-dropdown, .lofi-dropdown { width: 90vw; max-width: 280px; }
+          .sticker-picker { width: 90vw; max-width: 300px; }
+          .writing-node { max-width: calc(100% - 16px); }
+        }
+        @media (max-width: 480px) {
+          body { padding: 10px 4px; }
+          .toolbar { border-radius: 20px; padding: 6px 10px; gap: 6px; }
+          .toolbar-title { font-size: 15px; }
+          .tb-btn { height: 26px; padding: 0 8px; font-size: 11px; }
+          .ink-btn { width: 24px; height: 24px; }
+        }
+
       `}</style>
 
       <div className="toolbar">
         <span className="toolbar-title">shared notebook</span>
 
         <div className="toolbar-divider" />
+        {/* Visitor counter + online count live in the toolbar */}
         <OnlineBadge count={onlineCount} />
 
         <div className="toolbar-divider" />
@@ -2025,6 +2072,7 @@ export default function App() {
         </div>
 
         <div className="toolbar-divider" />
+
         <div className="mode-toggle-wrap">
           <div className="mode-toggle" onClick={(e) => e.stopPropagation()}>
             <div className={`mode-toggle-pill${isDrawingMode ? " draw" : ""}`} />
@@ -2035,8 +2083,7 @@ export default function App() {
                 setIsDrawingMode(false);
                 setShowDrawMenu(false);
                 setActiveInput(null);
-                setEditingId(null);
-              }}
+                          }}
               title="textbox mode"
             >
               Text
@@ -2048,8 +2095,7 @@ export default function App() {
                 setIsDrawingMode(true);
                 setShowDrawMenu(v => !v);
                 setActiveInput(null);
-                setEditingId(null);
-              }}
+                          }}
               title="draw mode"
             >
               Draw
@@ -2119,7 +2165,6 @@ export default function App() {
             <WritingNode
               key={w.id} writing={w}
               isEditing={editingId === w.id}
-              onStartEdit={(id) => setEditingId(id)}
               onDelete={handleDelete}
               onDragEnd={handleDragEnd}
               pageRef={pageRef}
@@ -2176,6 +2221,7 @@ export default function App() {
         }} />
       )}
 
+      {/* persistent audio — always mounted so closing the lofi dropdown doesn't stop music */}
       <audio ref={audioRef} preload="none" />
 
       <JoinToasts events={joinEvents} />
@@ -2202,4 +2248,3 @@ export default function App() {
     </>
   );
 }
-
