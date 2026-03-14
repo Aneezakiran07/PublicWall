@@ -486,8 +486,8 @@ function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
       ref={wrapRef}
       className="media-node"
       style={{
-      left: item.position_x <= 100 ? `${item.position_x}%` : item.position_x,
-      top:  item.position_y <= 100 ? `${item.position_y}%` : item.position_y,
+      left: item.position_x,
+      top:  item.position_y,
     }}
       onMouseDown={handleMouseDown}
       data-sticker-id={item.id}
@@ -607,8 +607,8 @@ function WritingNode({ writing, isEditing, onDelete, onDragEnd, pageRef }) {
       ref={wrapRef}
       className={`writing-node${isEditing ? " editing" : ""}`}
       style={{
-        left: writing.position_x <= 100 ? `${writing.position_x}%` : writing.position_x,
-        top:  writing.position_y <= 100 ? `${writing.position_y}%` : writing.position_y,
+        left: writing.position_x,
+        top:  writing.position_y,
         color: writing.font_color,
         fontFamily: writing.font_style,
       }}
@@ -1463,10 +1463,8 @@ export default function App() {
         return;
       }
       setEditingId(null);
-      const rect   = pageRef.current.getBoundingClientRect();
-      const scrollY = window.scrollY || document.documentElement.scrollTop;
-      const absY    = e.clientY + scrollY - (rect.top + scrollY);
-      setActiveInput({ x: ((e.clientX - rect.left) / rect.width) * 100, y: (absY / pageRef.current.scrollHeight) * 100 });
+      const rect = pageRef.current.getBoundingClientRect();
+      setActiveInput({ x: e.clientX - rect.left, y: e.clientY - rect.top + window.scrollY });
       setInputText("");
       setTimeout(() => inputRef.current?.focus(), 50);
     };
@@ -1480,7 +1478,7 @@ export default function App() {
     if (e.key === "Enter" && text.trim() && pos) {
       const writing = {
         content:     text.trim(),
-        position_x:  Math.max(0, Math.min(pos.x, 88)),
+        position_x:  Math.min(pos.x, (pageRef.current?.offsetWidth || 900) - 160),
         position_y:  pos.y,
         font_color:  inkColorRef.current,
         font_style:  inkFontRef.current,
@@ -1501,29 +1499,24 @@ export default function App() {
   };
 
   const handleDragEnd = async (id, newX, newY) => {
-    const pageW  = pageRef.current?.offsetWidth  || 900;
-    const pageH  = pageRef.current?.scrollHeight || 600;
-    const pctX   = Math.max(0, Math.min((newX / pageW) * 100, 90));
-    const pctY   = Math.max(0, (newY / pageH) * 100);
-    setWritings((prev) => prev.map((w) => w.id === id ? { ...w, position_x: pctX, position_y: pctY } : w));
-    await supabase.from("writings").update({ position_x: pctX, position_y: pctY }).eq("id", id);
+    const pageW    = pageRef.current?.offsetWidth || 900;
+    const clampedX = Math.max(0, Math.min(newX, pageW - 160));
+    const clampedY = Math.max(0, newY);
+    setWritings((prev) => prev.map((w) => w.id === id ? { ...w, position_x: clampedX, position_y: clampedY } : w));
+    await supabase.from("writings").update({ position_x: clampedX, position_y: clampedY }).eq("id", id);
   };
 
   const handlePlaceMedia = useCallback(async ({ type, content }) => {
     const page = pageRef.current;
     const pageRect = page.getBoundingClientRect();
-    const centerXpx = page.offsetWidth / 2;
-    const centerYpx = (window.innerHeight / 2 - pageRect.top) / pageRect.height * 100;
-    const x = centerXpx - 40;
-    const y = (centerYpx / 100) * page.scrollHeight - 40;
+    const x = page.offsetWidth / 2 - 40;
+    const y = window.scrollY - pageRect.top + window.innerHeight / 2 - 40;
     const defaultSize = type === "emoji" ? 64 : 120;
-    const pctX = Math.max(0, Math.min((x / page.offsetWidth) * 100, 85));
-    const pctY = Math.max(0, (y / page.scrollHeight) * 100);
     const item = {
       media_type:  type,
       content:     content,
-      position_x:  pctX,
-      position_y:  pctY,
+      position_x:  Math.max(0, x),
+      position_y:  Math.max(20, y),
       size:        defaultSize,
     };
     const { data } = await supabase.from("media_items").insert([item]).select().single();
@@ -1537,12 +1530,11 @@ export default function App() {
   };
 
   const handleMediaDragEnd = async (id, newX, newY) => {
-    const pageW  = pageRef.current?.offsetWidth  || 900;
-    const pageH  = pageRef.current?.scrollHeight || 600;
-    const pctX   = Math.max(0, Math.min((newX / pageW) * 100, 90));
-    const pctY   = Math.max(0, (newY / pageH) * 100);
-    setMediaItems((prev) => prev.map((m) => m.id === id ? { ...m, position_x: pctX, position_y: pctY } : m));
-    await supabase.from("media_items").update({ position_x: pctX, position_y: pctY }).eq("id", id);
+    const pageW    = pageRef.current?.offsetWidth || 900;
+    const clampedX = Math.max(0, Math.min(newX, pageW - 50));
+    const clampedY = Math.max(0, newY);
+    setMediaItems((prev) => prev.map((m) => m.id === id ? { ...m, position_x: clampedX, position_y: clampedY } : m));
+    await supabase.from("media_items").update({ position_x: clampedX, position_y: clampedY }).eq("id", id);
   };
 
   const handleMediaResize = async (id, newSize) => {
@@ -2195,8 +2187,8 @@ export default function App() {
           {activeInput && !isDrawingMode && (
             <div className="active-input-wrapper"
               style={{
-                left: `${(activeInput.x / 100) * (pageRef.current?.offsetWidth || 900)}px`,
-                top:  `${(activeInput.y / 100) * (pageRef.current?.scrollHeight || 600)}px`,
+                left: `${activeInput.x}px`,
+                top:  `${activeInput.y}px`,
                 color: inkColor, fontFamily: inkFont,
               }}>
               <input
