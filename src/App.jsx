@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { ssrDynamicImportKey } from "vite/runtime";
 
 const GIPHY_KEY = import.meta.env.VITE_GIPHY;
 const SUPABASE_URL = import.meta.env.VITE_URL;
@@ -37,6 +36,7 @@ const LOFI_TRACKS = [
   { url: "https://stream.nightride.fm/datawave.mp3",   label: "datawave fm" },
   { url: "https://stream.nightride.fm/spacesynth.mp3", label: "spacesynth fm" },
 ];
+
 
 const STICKER_PACKS = [
   { label: "😀 Smileys", stickers: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","😉","😊","😇","🥰","😍","🤩","😘","😗","☺️","😚","😙","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤫","🤔","🤐","🤨","😐","😑","😶","😏","😒","🙄","😬","🤥","😌","😔","😪","🤤","😴","😷","🤒","🤕","🤢","🤮","🤧","🥵","🥶","🥴","😵","🤯","🤠","🥳","🥸","😎","🤓","🧐","😕","😟","🙁","☹️","😮","😯","😲","😳","🥺","😦","😧","😨","😰","😥","😢","😭","😱","😖","😣","😞","😓","😩","😫","🥱","😤","😡","😠","🤬","😈","👿","💀","☠️","💩","🤡","👹","👺","👻","👽","👾","🤖"] },
@@ -485,7 +485,10 @@ function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
     <div
       ref={wrapRef}
       className="media-node"
-      style={{ left: item.position_x, top: item.position_y }}
+      style={{
+      left: item.position_x,
+      top:  item.position_y,
+    }}
       onMouseDown={handleMouseDown}
       data-sticker-id={item.id}
     >
@@ -500,12 +503,11 @@ function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
   );
 }
 
-function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pageRef }) {
+function WritingNode({ writing, isEditing, onDelete, onDragEnd, pageRef }) {
   const ref = useRef(null);
   const wrapRef = useRef(null);
   const saveTimer = useRef(null);
   const isEditingRef = useRef(isEditing);
-  const onStartEditRef = useRef(onStartEdit);
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const hasDragged = useRef(false);
@@ -513,24 +515,18 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, fontSize: 20 });
 
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
-  useEffect(() => { onStartEditRef.current = onStartEdit; }, [onStartEdit]);
-
-  // Focus & move cursor to end when entering edit mode
   useEffect(() => {
-  if (isEditing && ref.current) {
-    // populate the empty contentEditable with existing text before focusing
-    if (!ref.current.innerText) {
-      ref.current.innerText = writing.content;
+    if (isEditing && ref.current) {
+      ref.current.focus();
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(ref.current);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
     }
-    ref.current.focus();
-    const range = document.createRange();
-    const sel = window.getSelection();
-    range.selectNodeContents(ref.current);
-    range.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(range);
-  }
-}, [isEditing]);
+  }, [isEditing]);
+
   const handleInput = () => {
     const text = ref.current.innerText;
     clearTimeout(saveTimer.current);
@@ -538,21 +534,19 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
       supabase.from("writings").update({ content: text }).eq("id", writing.id);
     }, 500);
   };
-
   const handleBlur = () => {
     const text = ref.current?.innerText?.trim();
     clearTimeout(saveTimer.current);
     if (!text) {
       onDelete(writing.id);
     } else {
-      supabase.from("writings").update({ content: text }).eq("id", writing.id)
-        .then(({ error }) => { if (error) console.error("save failed:", error.message); });
+      supabase.from("writings").update({ content: text }).eq("id", writing.id);
     }
   };
 
   const handleMouseDown = (e) => {
     if (isEditingRef.current) return;
-    if (e.target.closest(".delete-btn")) return;
+    if (e.target.closest(".delete-btn") || e.target.closest(".resize-handle-text")) return;
     e.preventDefault(); e.stopPropagation();
     dragging.current = true; hasDragged.current = false;
     const rect = wrapRef.current.getBoundingClientRect();
@@ -611,32 +605,29 @@ function WritingNode({ writing, isEditing, onStartEdit, onDelete, onDragEnd, pag
   return (
     <div
       ref={wrapRef}
-      className={`writing-node ${isEditing ? "editing" : ""}`}
-      style={{ left: writing.position_x, top: writing.position_y, color: writing.font_color, fontFamily: writing.font_style }}
+      className={`writing-node${isEditing ? " editing" : ""}`}
+      style={{
+        left: writing.position_x,
+        top:  writing.position_y,
+        color: writing.font_color,
+        fontFamily: writing.font_style,
+      }}
       data-id={writing.id}
       onMouseDown={handleMouseDown}
     >
-      {}
-      {isEditing ? (
-        <div
-          ref={ref}
-          className="writing-node-text"
-          contentEditable
-          suppressContentEditableWarning
-          onInput={handleInput}
-          onKeyDown={(e) => { if (e.key === "Escape") ref.current.blur(); }}
-          onBlur={handleBlur}
-          spellCheck={false}
-          style={{ fontSize: writing.font_size ? `${writing.font_size}px` : "20px" }}
-        />
-      ) : (
-        <div
-          ref={ref}
-          className="writing-node-text"
-          style={{ fontSize: writing.font_size ? `${writing.font_size}px` : "20px" }}
-          dangerouslySetInnerHTML={{ __html: writing.content }}
-        />
-      )}
+      <div
+        ref={ref}
+        className="writing-node-text"
+        contentEditable={isEditing}
+        suppressContentEditableWarning
+        onInput={handleInput}
+        onKeyDown={(e) => { if (e.key === "Escape") ref.current.blur(); }}
+        onBlur={handleBlur}
+        spellCheck={false}
+        style={{ fontSize: writing.font_size ? `${writing.font_size}px` : "20px" }}
+      >
+        {writing.content}
+      </div>
       {writing.author_name && (
         <div className="writing-author">~ {writing.author_name}</div>
       )}
@@ -719,6 +710,7 @@ function ThemeModal({ currentThemeId, onSelect, onClose }) {
   );
 }
 
+// ── useOnlineCount: tracks how many people are currently on the page ──────────
 function useOnlineCount() {
   const [count, setCount] = useState(1);
   useEffect(() => {
@@ -739,6 +731,7 @@ function useOnlineCount() {
   return count;
 }
 
+// ── useJoinEvents: shows toast when someone joins/leaves ──────────────────────
 function useJoinEvents(userName) {
   const [events, setEvents] = useState([]);
   const myKey = useRef(crypto.randomUUID());
@@ -803,11 +796,14 @@ function JoinToasts({ events }) {
   );
 }
 
+// ── useTypingUsers: fixed version — channel is created once, presence is
+//   updated via track() when isTyping changes rather than re-subscribing. ──────
 function useTypingUsers(userName, isTyping) {
   const [typingUsers, setTypingUsers] = useState([]);
   const myKey = useRef(crypto.randomUUID());
   const channelRef = useRef(null);
 
+  // Subscribe once when userName is available
   useEffect(() => {
     if (!userName) return;
     const channel = supabase.channel("typing-indicator", {
@@ -835,6 +831,7 @@ function useTypingUsers(userName, isTyping) {
     };
   }, [userName]);
 
+  // Update presence whenever isTyping changes — no re-subscribe needed
   useEffect(() => {
     if (!channelRef.current || !userName) return;
     channelRef.current.track({ name: userName, typing: isTyping });
@@ -864,6 +861,7 @@ function TypingIndicator({ users }) {
   );
 }
 
+// ── OnlineBadge: shows live count in the toolbar ─────────────────────────────
 function OnlineBadge({ count }) {
   return (
     <div className="online-badge" title={`${count} ${count === 1 ? "person" : "people"} online`}>
@@ -873,6 +871,7 @@ function OnlineBadge({ count }) {
   );
 }
 
+// ── DrawingCanvas ──────────────────────────────────────────────────────────────
 function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrokeComplete, onDrawStart, onDeleteStroke }) {
   const canvasRef = useRef(null);
   const isMouseDown = useRef(false);
@@ -970,6 +969,20 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     currentPath.current = [];
   };
 
+  // Attach touch events with passive:false so preventDefault works
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.addEventListener("touchstart", startDraw, { passive: false });
+    canvas.addEventListener("touchmove",  draw,      { passive: false });
+    canvas.addEventListener("touchend",   endDraw,   { passive: false });
+    return () => {
+      canvas.removeEventListener("touchstart", startDraw);
+      canvas.removeEventListener("touchmove",  draw);
+      canvas.removeEventListener("touchend",   endDraw);
+    };
+  });
+
   const isNearStroke = (px, py, stroke) => {
     const threshold = Math.max(stroke.size, 4) + 8;
     const pts = stroke.points;
@@ -1014,7 +1027,6 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
         style={{
           position: "absolute", top: 0, left: 0, zIndex: 15,
           pointerEvents: isDrawing ? "all" : "none",
-          //cursor: isDrawing ? `url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cg%20transform%3D%22rotate%28-45%2016%2016%29%22%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23e91e8c%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Cpolygon%20points%3D%2213%2C20%2019%2C20%2016%2C28%22%20fill%3D%22%231a1a2e%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%224%22%20width%3D%226%22%20height%3D%225%22%20rx%3D%222%22%20fill%3D%22%23ff85a2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") 2 30, crosshair` : "default",
           cursor: isDrawing ? "crosshair" : "default",
           touchAction: "none",
         }}
@@ -1022,9 +1034,6 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
         onMouseMove={draw}
         onMouseUp={endDraw}
         onMouseLeave={endDraw}
-        onTouchStart={startDraw}
-        onTouchMove={draw}
-        onTouchEnd={endDraw}
       />
       {!isDrawing && hoveredStroke && hoveredStroke.points && hoveredStroke.points.length >= 2 && (() => {
         const mid = getMid(hoveredStroke.points);
@@ -1077,6 +1086,7 @@ function PenSizeDot({ size, selected, onClick }) {
   );
 }
 
+// ── useLofiSync: syncs play/pause/track state via broadcast only ──────────────
 function useLofiSync(userName) {
   const [playing, setPlaying] = useState(false);
   const [trackIdx, setTrackIdx] = useState(0);
@@ -1086,6 +1096,7 @@ function useLofiSync(userName) {
   useEffect(() => {
     const channel = supabase.channel("lofi-sync");
     channelRef.current = channel;
+
     channel
       .on("broadcast", { event: "lofi" }, ({ payload }) => {
         isSyncingRef.current = true;
@@ -1095,6 +1106,7 @@ function useLofiSync(userName) {
         setTimeout(() => { isSyncingRef.current = false; }, 50);
       })
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -1117,9 +1129,12 @@ function useLofiSync(userName) {
   return { playing, trackIdx, togglePlay, selectTrack };
 }
 
+// ── LofiPlayer: pure UI dropdown — audio lives in App so it never unmounts ────
 function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
   const ref = useRef(null);
+  const track = LOFI_TRACKS[trackIdx];
 
+  // Close on outside click
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
     setTimeout(() => document.addEventListener("mousedown", h), 10);
@@ -1129,10 +1144,14 @@ function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
   return (
     <div ref={ref} className="lofi-dropdown" onClick={(e) => e.stopPropagation()}>
       <p className="picker-label">lofi radio</p>
+
+      {/* play/pause */}
       <button className="lofi-play-btn" onClick={onToggle}>
         <span style={{ fontSize: 13 }}>{playing ? "||" : "▶"}</span>
         <span style={{ flex: 1, textAlign: "left" }}>{playing ? "now playing" : "paused"}</span>
       </button>
+
+      {/* track list */}
       <p className="picker-label" style={{ marginTop: 4 }}>Stations</p>
       {LOFI_TRACKS.map((t, i) => (
         <button
@@ -1140,10 +1159,12 @@ function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
           className={`lofi-track-btn${trackIdx === i ? " active" : ""}`}
           onClick={() => onSelectTrack(i)}
         >
+          
           <span style={{ flex: 1, textAlign: "left", fontFamily: "'Patrick Hand', cursive", fontSize: 12 }}>{t.label}</span>
           {trackIdx === i && <span style={{ color: "#ff6b9d", fontSize: 10 }}>●</span>}
         </button>
       ))}
+
       <p style={{ fontSize: 9, color: "#cca0b8", textAlign: "center", marginTop: 8, fontFamily: "'Patrick Hand', cursive" }}>
         synced for everyone • nightride.fm
       </p>
@@ -1151,12 +1172,13 @@ function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) {
   );
 }
 
+// ── useReactions: fire-and-forget broadcast, no DB needed ─────────────────────
 function useReactions(userName) {
   const [bursts, setBursts] = useState([]);
   const channelRef = useRef(null);
 
   useEffect(() => {
-    const channel = supabase.channel("reactions-broadcast");
+    const channel = supabase.channel("reactions-broadcast", { config: { broadcast: { self: false } } });
     channelRef.current = channel;
     channel
       .on("broadcast", { event: "reaction" }, ({ payload }) => {
@@ -1170,10 +1192,12 @@ function useReactions(userName) {
   }, []);
 
   const sendReaction = useCallback((emoji) => {
+    // show the burst locally immediately (broadcast doesn't echo back to sender)
     const id = crypto.randomUUID();
     const x = 10 + Math.random() * 80;
     setBursts(prev => [...prev, { id, emoji, name: userName || "someone", x }]);
     setTimeout(() => setBursts(prev => prev.filter(b => b.id !== id)), 2800);
+    // broadcast to everyone else
     channelRef.current?.send({
       type: "broadcast",
       event: "reaction",
@@ -1184,6 +1208,7 @@ function useReactions(userName) {
   return { bursts, sendReaction };
 }
 
+// ── ReactionBurst: single floating emoji that animates up ─────────────────────
 function ReactionBurst({ burst }) {
   return (
     <div style={{
@@ -1214,6 +1239,7 @@ function ReactionBurst({ burst }) {
   );
 }
 
+// ── ReactionBar: fixed bottom-center strip of reaction buttons ────────────────
 function ReactionBar({ onReact }) {
   return (
     <div style={{
@@ -1247,6 +1273,148 @@ function ReactionBar({ onReact }) {
   );
 }
 
+
+// ── RenameModal ────────────────────────────────────────────────────────────────
+function RenameModal({ notebook, onSave, onDelete, onClose }) {
+  const [title, setTitle] = useState(notebook.title);
+  const inputRef = useRef(null);
+  useEffect(() => { setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 50); }, []);
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header" style={{ borderBottom: "none", paddingBottom: 0 }}>
+          <span className="modal-title">rename notebook</span>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding: "16px 26px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <input ref={inputRef}
+            style={{ background: "rgba(255,240,248,0.8)", border: "1.5px solid rgba(255,180,210,0.5)", borderRadius: 12, padding: "10px 14px", fontSize: 18, fontFamily: "'Caveat', cursive", color: "#4a2838", width: "100%", outline: "none" }}
+            value={title} onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && title.trim()) onSave(title.trim()); if (e.key === "Escape") onClose(); }}
+            maxLength={32} />
+          <button className="tb-btn primary" style={{ height: 40, fontSize: 15, borderRadius: 14, opacity: title.trim() ? 1 : 0.5 }}
+            onClick={() => { if (title.trim()) onSave(title.trim()); }}>save</button>
+          <button className="tb-btn" style={{ height: 36, fontSize: 13, borderRadius: 14, color: "#e74c3c", borderColor: "rgba(231,76,60,0.3)" }}
+            onClick={() => onDelete(notebook.id)}>delete notebook</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── useNotebooks ───────────────────────────────────────────────────────────────
+function useNotebooks() {
+  const [notebooks, setNotebooks] = useState([]);
+  const [activeId, setActiveId] = useState(null);
+
+  useEffect(() => {
+    supabase.from("notebooks").select("*").order("created_at", { ascending: true })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setNotebooks(data);
+          setActiveId(id => id || data[0].id);
+        } else {
+          supabase.from("notebooks").insert([{ title: "main notebook" }]).select().single()
+            .then(({ data: nb }) => { if (nb) { setNotebooks([nb]); setActiveId(nb.id); } });
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase.channel("notebooks-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notebooks" }, ({ new: nb }) => {
+        setNotebooks(prev => prev.find(n => n.id === nb.id) ? prev : [...prev, nb]);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notebooks" }, ({ new: nb }) => {
+        setNotebooks(prev => prev.map(n => n.id === nb.id ? nb : n));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "notebooks" }, ({ old: nb }) => {
+        setNotebooks(prev => prev.filter(n => n.id !== nb.id));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const createNotebook = useCallback(async (title, createdBy) => {
+    const { data } = await supabase.from("notebooks").insert([{ title, created_by: createdBy || null }]).select().single();
+    if (data) setActiveId(data.id);
+    return data;
+  }, []);
+
+  const renameNotebook = useCallback(async (id, title) => {
+    await supabase.from("notebooks").update({ title }).eq("id", id);
+  }, []);
+
+  const deleteNotebook = useCallback(async (id, switchTo) => {
+    await supabase.from("writings").delete().eq("notebook_id", id);
+    await supabase.from("media_items").delete().eq("notebook_id", id);
+    await supabase.from("drawing_strokes").delete().eq("notebook_id", id);
+    await supabase.from("notebooks").delete().eq("id", id);
+    if (switchTo) setActiveId(switchTo);
+  }, []);
+
+  return { notebooks, activeId, setActiveId, createNotebook, renameNotebook, deleteNotebook };
+}
+
+// ── NotebookDropdown — lives inside the toolbar ───────────────────────────────
+function NotebookDropdown({ notebooks, activeId, onSwitch, onCreate, onRename, onDelete, userName, onClose }) {
+  const [renamingNb, setRenamingNb] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const newInputRef = useRef(null);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    setTimeout(() => document.addEventListener("mousedown", h), 10);
+    return () => document.removeEventListener("mousedown", h);
+  }, [onClose]);
+
+  useEffect(() => { if (showCreate) setTimeout(() => newInputRef.current?.focus(), 50); }, [showCreate]);
+
+  const activeNb = notebooks.find(n => n.id === activeId);
+
+  return (
+    <div ref={ref} className="nb-dropdown" onClick={(e) => e.stopPropagation()}>
+      <p className="picker-label">notebooks</p>
+      {notebooks.map(nb => (
+        <button key={nb.id} className={`nb-dropdown-item${nb.id === activeId ? " active" : ""}`}
+          onClick={() => { onSwitch(nb.id); onClose(); }}
+          onDoubleClick={() => setRenamingNb(nb)}>
+          <span style={{ flex: 1, textAlign: "left" }}>{nb.title}</span>
+          {nb.created_by && <span className="nb-dropdown-author">by {nb.created_by}</span>}
+          {nb.id === activeId && <span style={{ color: "#ff6b9d", fontSize: 10 }}>●</span>}
+        </button>
+      ))}
+      <div style={{ borderTop: "1px solid rgba(255,200,220,0.3)", margin: "8px 0 6px" }} />
+      {showCreate ? (
+        <input ref={newInputRef} className="nb-dropdown-input"
+          value={newTitle} onChange={e => setNewTitle(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && newTitle.trim()) { onCreate(newTitle.trim()); setNewTitle(""); setShowCreate(false); onClose(); }
+            if (e.key === "Escape") { setShowCreate(false); setNewTitle(""); }
+          }}
+          placeholder="notebook name..." maxLength={32} autoFocus />
+      ) : (
+        <button className="nb-dropdown-new" onClick={() => setShowCreate(true)}>+ new notebook</button>
+      )}
+      {renamingNb && (
+        <RenameModal notebook={renamingNb}
+          onSave={async (title) => { await onRename(renamingNb.id, title); setRenamingNb(null); }}
+          onDelete={async (id) => {
+            const remaining = notebooks.filter(n => n.id !== id);
+            if (remaining.length === 0) { alert("Can't delete the last notebook!"); return; }
+            const switchTo = activeId === id ? remaining[0].id : activeId;
+            await onDelete(id, switchTo);
+            setRenamingNb(null);
+            onClose();
+          }}
+          onClose={() => setRenamingNb(null)} />
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [writings, setWritings]               = useState([]);
   const [mediaItems, setMediaItems]           = useState([]);
@@ -1271,6 +1439,7 @@ export default function App() {
   const [penSize, setPenSize]                 = useState(3);
   const [strokes, setStrokes]                 = useState([]);
 
+  const { notebooks, activeId, setActiveId, createNotebook, renameNotebook, deleteNotebook } = useNotebooks();
   const onlineCount = useOnlineCount();
   const joinEvents  = useJoinEvents(userName);
 
@@ -1283,10 +1452,12 @@ export default function App() {
   const inkColorRef    = useRef(inkColor);
   const inkFontRef     = useRef(inkFont);
 
+  // Pass isTyping as a boolean — the hook handles its own channel lifecycle
   const typingUsers = useTypingUsers(userName, !!activeInput);
   const { bursts, sendReaction } = useReactions(userName);
   const { playing: lofiPlaying, trackIdx: lofiTrack, togglePlay: lofiToggle, selectTrack: lofiSelect } = useLofiSync(userName);
 
+  // Keep audio in sync — lives in App so closing the dropdown never kills playback
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -1297,8 +1468,8 @@ export default function App() {
       audio.pause();
     }
   }, [lofiPlaying, lofiTrack]);
-
   const [showLofi, setShowLofi] = useState(false);
+  const [showNbDropdown, setShowNbDropdown] = useState(false);
 
   useEffect(() => { editingIdRef.current   = editingId;   }, [editingId]);
   useEffect(() => { inputTextRef.current   = inputText;   }, [inputText]);
@@ -1321,99 +1492,65 @@ export default function App() {
     document.body.style.backgroundImage = pageTheme.bodyBgImage === "none" ? "" : pageTheme.bodyBgImage;
   }, [pageTheme.bodyBg, pageTheme.bodyBgImage]);
 
+  // Load all data for the active notebook
   useEffect(() => {
-    supabase.from("writings").select("*").order("created_at", { ascending: true })
+    if (!activeId) return;
+    // reset content — keep global page height as-is
+    setWritings([]); setMediaItems([]); setStrokes([]);
+    setActiveInput(null); setEditingId(null);
+    supabase.from("writings").select("*").eq("notebook_id", activeId).order("created_at", { ascending: true })
       .then(({ data }) => { if (data) setWritings(data); });
-  }, []);
-
-  useEffect(() => {
-    supabase.from("media_items").select("*").order("created_at", { ascending: true })
+    supabase.from("media_items").select("*").eq("notebook_id", activeId).order("created_at", { ascending: true })
       .then(({ data }) => { if (data) setMediaItems(data); });
-  }, []);
-
-  useEffect(() => {
-    supabase.from("page_settings").select("*").eq("id", PAGE_THEME_ROW_ID).single()
-      .then(({ data, error }) => {
-        if (data?.theme_id) setPageThemeId(data.theme_id);
-        if (data?.extra_height != null) setExtraHeight(data.extra_height);
-        if (!data && error?.code === "PGRST116") {
-          supabase.from("page_settings").insert({
-            id: PAGE_THEME_ROW_ID,
-            theme_id: "sakura",
-            extra_height: 0,
-          });
-        }
-      });
-  }, []);
-
-  useEffect(() => {
-    supabase.from("drawing_strokes").select("*").order("created_at", { ascending: true })
+    supabase.from("drawing_strokes").select("*").eq("notebook_id", activeId).order("created_at", { ascending: true })
+      .then(({ data }) => { if (data) setStrokes(data.map(r => ({ id: r.id, points: r.points, color: r.color, size: r.size }))); });
+    supabase.from("page_settings").select("*").eq("id", "global-page-height").maybeSingle()
       .then(({ data }) => {
-        if (data) {
-          setStrokes(data.map(row => ({
-            id: row.id,
-            points: row.points,
-            color: row.color,
-            size: row.size,
-          })));
+        setExtraHeight(data?.extra_height ?? 0);
+        if (!data) {
+          supabase.from("page_settings").insert({ id: "global-page-height", theme_id: "sakura", extra_height: 0 }).then(() => {});
         }
       });
-  }, []);
+  }, [activeId]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel("drawing-strokes-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "drawing_strokes" }, (payload) => {
-        const row = payload.new;
-        setStrokes(prev => {
-          if (prev.find(s => s.id === row.id)) return prev;
-          return [...prev, { id: row.id, points: row.points, color: row.color, size: row.size }];
-        });
+    if (!activeId) return;
+    const ch = supabase.channel(`strokes-rt-${activeId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "drawing_strokes", filter: `notebook_id=eq.${activeId}` }, ({ new: row }) => {
+        setStrokes(prev => prev.find(s => s.id === row.id) ? prev : [...prev, { id: row.id, points: row.points, color: row.color, size: row.size }]);
       })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "drawing_strokes" }, (payload) => {
-        setStrokes(prev => prev.filter(s => s.id !== payload.old.id));
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "drawing_strokes" }, ({ old: row }) => {
+        setStrokes(prev => prev.filter(s => s.id !== row.id));
+      }).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [activeId]);
 
+  // per-notebook realtime for writings and media
   useEffect(() => {
-    const channel = supabase
-      .channel("writings-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "writings" }, (payload) => {
-        setWritings(prev => prev.find(w => w.id === payload.new.id) ? prev : [...prev, payload.new]);
+    if (!activeId) return;
+    const id = activeId; // capture at subscription time
+    const ch = supabase.channel(`wm-rt-${id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "writings", filter: `notebook_id=eq.${id}` }, ({ new: row }) => {
+        setWritings(prev => prev.find(w => w.id === row.id) ? prev : [...prev, row]);
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "writings" }, (payload) => {
-        //  skip applying remote updates to whichever node is being edited
-        //    so realtime echoes of the user's own saves never clobber their typing
-        setWritings(prev => prev.map(w =>
-          (w.id === payload.new.id && editingIdRef.current !== payload.new.id)
-            ? payload.new
-            : w
-        ));
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "writings", filter: `notebook_id=eq.${id}` }, ({ new: row }) => {
+        setWritings(prev => prev.map(w => (w.id === row.id && editingIdRef.current !== row.id) ? row : w));
       })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "writings" }, (payload) => {
-        setWritings(prev => prev.filter(w => w.id !== payload.old.id));
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "writings" }, ({ old: row }) => {
+        setWritings(prev => prev.filter(w => w.id !== row.id));
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "media_items", filter: `notebook_id=eq.${id}` }, ({ new: row }) => {
+        setMediaItems(prev => prev.find(m => m.id === row.id) ? prev : [...prev, row]);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "media_items", filter: `notebook_id=eq.${id}` }, ({ new: row }) => {
+        setMediaItems(prev => prev.map(m => m.id === row.id ? row : m));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "media_items" }, ({ old: row }) => {
+        setMediaItems(prev => prev.filter(m => m.id !== row.id));
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("media-items-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "media_items" }, (payload) => {
-        setMediaItems(prev => prev.find(m => m.id === payload.new.id) ? prev : [...prev, payload.new]);
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "media_items" }, (payload) => {
-        setMediaItems(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "media_items" }, (payload) => {
-        setMediaItems(prev => prev.filter(m => m.id !== payload.old.id));
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+    return () => { supabase.removeChannel(ch); };
+  }, [activeId]);
 
   const handleStrokeComplete = useCallback(async (stroke) => {
     setStrokes(prev => [...prev, stroke]);
@@ -1421,6 +1558,7 @@ export default function App() {
       points: stroke.points,
       color: stroke.color,
       size: stroke.size,
+      notebook_id: activeId,
     }]).select().single();
     if (data) {
       setStrokes(prev => {
@@ -1440,7 +1578,7 @@ export default function App() {
 
   const handleClearDrawing = async () => {
     setStrokes([]);
-    await supabase.from("drawing_strokes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (activeId) await supabase.from("drawing_strokes").delete().eq("notebook_id", activeId);
   };
 
   useEffect(() => {
@@ -1461,7 +1599,7 @@ export default function App() {
       }
       setEditingId(null);
       const rect = pageRef.current.getBoundingClientRect();
-      setActiveInput({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
+      setActiveInput({ x: e.clientX - rect.left, y: e.clientY - rect.top + window.scrollY });
       setInputText("");
       setTimeout(() => inputRef.current?.focus(), 50);
     };
@@ -1475,11 +1613,12 @@ export default function App() {
     if (e.key === "Enter" && text.trim() && pos) {
       const writing = {
         content:     text.trim(),
-        position_x:  Math.min((pos.x / 100) * (pageRef.current?.offsetWidth || 900), (pageRef.current?.offsetWidth || 900) - 160),
-        position_y:  (pos.y / 100) * (pageRef.current?.scrollHeight || 600),
+        position_x:  Math.min(pos.x, (pageRef.current?.offsetWidth || 900) - 160),
+        position_y:  pos.y,
         font_color:  inkColorRef.current,
         font_style:  inkFontRef.current,
         author_name: userName || null,
+        notebook_id: activeId,
       };
       const { data } = await supabase.from("writings").insert([writing]).select().single();
       if (data) setWritings((prev) => [...prev, data]);
@@ -1506,10 +1645,8 @@ export default function App() {
   const handlePlaceMedia = useCallback(async ({ type, content }) => {
     const page = pageRef.current;
     const pageRect = page.getBoundingClientRect();
-    const centerXpx = page.offsetWidth / 2;
-    const centerYpx = (window.innerHeight / 2 - pageRect.top) / pageRect.height * 100;
-    const x = centerXpx - 40;
-    const y = (centerYpx / 100) * page.scrollHeight - 40;
+    const x = page.offsetWidth / 2 - 40;
+    const y = window.scrollY - pageRect.top + window.innerHeight / 2 - 40;
     const defaultSize = type === "emoji" ? 64 : 120;
     const item = {
       media_type:  type,
@@ -1517,6 +1654,7 @@ export default function App() {
       position_x:  Math.max(0, x),
       position_y:  Math.max(20, y),
       size:        defaultSize,
+      notebook_id: activeId,
     };
     const { data } = await supabase.from("media_items").insert([item]).select().single();
     if (data) setMediaItems((prev) => [...prev, data]);
@@ -1529,7 +1667,7 @@ export default function App() {
   };
 
   const handleMediaDragEnd = async (id, newX, newY) => {
-    const pageW = pageRef.current?.offsetWidth || 900;
+    const pageW    = pageRef.current?.offsetWidth || 900;
     const clampedX = Math.max(0, Math.min(newX, pageW - 50));
     const clampedY = Math.max(0, newY);
     setMediaItems((prev) => prev.map((m) => m.id === id ? { ...m, position_x: clampedX, position_y: clampedY } : m));
@@ -1555,10 +1693,47 @@ export default function App() {
           min-height: 100vh;
           display: flex;
           flex-direction: column;
-          align-items: center;
-          padding: 24px 16px;
+          align-items: stretch;
+          padding: 24px 10%;
           font-family: 'Caveat', cursive;
           transition: background 0.5s ease;
+        }
+
+
+        /* ── Notebook dropdown ───────────────────────────────────────────── */
+        .nb-dropdown {
+          position: absolute; top: calc(100% + 10px);
+          left: 0;
+          background: #fffbf8;
+          border: 1px solid rgba(255,180,210,0.5);
+          border-radius: 16px; padding: 14px;
+          box-shadow: 0 12px 40px rgba(255,107,157,0.2), 0 4px 12px rgba(0,0,0,0.1);
+          z-index: 9999; width: 220px;
+          animation: popIn 0.15s ease;
+        }
+        .nb-dropdown-item {
+          display: flex; align-items: center; gap: 6px;
+          width: 100%; padding: 7px 8px;
+          background: none; border: 1.5px solid transparent;
+          border-radius: 10px; cursor: pointer;
+          font-family: 'Patrick Hand', cursive; font-size: 13px; color: #8b4060;
+          transition: all 0.12s;
+        }
+        .nb-dropdown-item:hover { background: rgba(255,210,230,0.3); border-color: rgba(255,180,210,0.3); }
+        .nb-dropdown-item.active { border-color: #ff85a2; background: rgba(255,210,230,0.2); }
+        .nb-dropdown-author { font-size: 10px; color: #c090b0; }
+        .nb-dropdown-new {
+          width: 100%; padding: 7px 8px; background: none;
+          border: 1.5px dashed rgba(255,180,210,0.5); border-radius: 10px;
+          font-family: 'Patrick Hand', cursive; font-size: 12px; color: #c090b0;
+          cursor: pointer; transition: all 0.12s;
+        }
+        .nb-dropdown-new:hover { background: rgba(255,210,230,0.2); color: #8b4060; border-color: #ff85a2; }
+        .nb-dropdown-input {
+          width: 100%; padding: 7px 10px; border-radius: 10px;
+          border: 1.5px solid #ff85a2; outline: none;
+          font-family: 'Patrick Hand', cursive; font-size: 13px; color: #4a2838;
+          background: rgba(255,255,255,0.95);
         }
 
         .toolbar {
@@ -1569,10 +1744,11 @@ export default function App() {
           border-radius: 40px; padding: 0 20px;
           height: 52px;
           box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-          flex-wrap: nowrap; justify-content: center;
+          flex-wrap: wrap; justify-content: center;
           position: sticky; top: 16px;
           z-index: 1000; overflow: visible;
           backdrop-filter: blur(8px);
+          max-width: 100%; height: auto; min-height: 52px; padding: 8px 16px; gap: 8px;
         }
         .toolbar-title { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 600; color: #4a2838; letter-spacing: -0.5px; white-space: nowrap; }
         .toolbar-divider { width: 1px; height: 20px; background: rgba(255,160,200,0.35); flex-shrink: 0; }
@@ -1628,30 +1804,39 @@ export default function App() {
 
         .mode-toggle-wrap { position: relative; overflow: visible; display: flex; align-items: center; }
         .mode-toggle {
-          position: relative; display: flex; align-items: center;
+          position: relative;
+          display: flex; align-items: center;
           background: rgba(255,240,248,0.9);
           border: 1.5px solid rgba(255,180,210,0.5);
-          border-radius: 20px; padding: 3px; gap: 0; height: 32px;
+          border-radius: 20px;
+          padding: 3px;
+          gap: 0;
+          height: 32px;
         }
         .mode-toggle-pill {
-          position: absolute; top: 3px; left: 3px;
+          position: absolute;
+          top: 3px; left: 3px;
           width: 48px; height: 24px;
           background: linear-gradient(135deg, #ff85a2, #ff6b9d);
           border-radius: 14px;
           transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
           box-shadow: 0 2px 8px rgba(255,107,157,0.4);
-          pointer-events: none; z-index: 0;
+          pointer-events: none;
+          z-index: 0;
         }
         .mode-toggle-pill.draw { transform: translateX(48px); }
         .mode-toggle-btn {
           position: relative; z-index: 1;
           width: 48px; height: 24px;
-          border: none; background: none; border-radius: 14px;
+          border: none; background: none;
+          border-radius: 14px;
           font-size: 12px; font-family: 'Patrick Hand', cursive;
           font-weight: 600; letter-spacing: 0.2px;
           cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          transition: color 0.15s; flex-shrink: 0; color: #b080a0;
+          transition: color 0.15s;
+          flex-shrink: 0;
+          color: #b080a0;
         }
         .mode-toggle-btn.active { color: white; }
         .mode-toggle-btn:hover:not(.active) { color: #8b4060; }
@@ -1670,7 +1855,8 @@ export default function App() {
         .pen-color-dot {
           width: 26px; height: 26px; border-radius: 50%;
           border: 2.5px solid transparent;
-          cursor: pointer; transition: transform 0.12s, border-color 0.12s; flex-shrink: 0;
+          cursor: pointer; transition: transform 0.12s, border-color 0.12s;
+          flex-shrink: 0;
         }
         .pen-color-dot:hover { transform: scale(1.2); }
         .pen-color-dot.selected { border-color: #ff6b9d; transform: scale(1.12); }
@@ -1788,7 +1974,6 @@ export default function App() {
           cursor: grab; animation: inkDrop 0.3s ease-out;
           user-select: none; max-width: min(380px, calc(100% - 20px));
         }
-        .writing-node.editing { cursor: text; }
         .writing-node .resize-handle-text {
           position: absolute; bottom: -8px; right: -8px;
           width: 16px; height: 16px;
@@ -1808,6 +1993,7 @@ export default function App() {
           text-shadow: 0 1px 1px rgba(255,255,255,0.3);
           min-height: 1.2em; min-width: 4px;
         }
+        .writing-node.editing { cursor: text; }
         .writing-node:not(.editing):hover .writing-node-text { background: rgba(255,230,80,0.3); }
         .writing-node.editing .writing-node-text {
           background: rgba(255,255,255,0.7);
@@ -1935,7 +2121,6 @@ export default function App() {
           color: #a07888; transition: all 0.15s; flex-shrink: 0;
         }
         .gif-load-more:hover { background: rgba(255,210,230,0.4); color: #8b4060; }
-
         .lofi-dropdown {
           position: absolute; top: calc(100% + 10px);
           left: 50%; transform: translateX(-50%);
@@ -1960,14 +2145,102 @@ export default function App() {
           display: flex; align-items: center; gap: 6px;
           width: 100%; padding: 6px 8px;
           background: none; border: 1.5px solid transparent;
-          border-radius: 10px; cursor: pointer; transition: all 0.12s;
+          border-radius: 10px; cursor: pointer;
+          transition: all 0.12s;
         }
         .lofi-track-btn:hover { background: rgba(255,210,230,0.3); border-color: rgba(255,180,210,0.3); }
         .lofi-track-btn.active { border-color: #ff85a2; background: rgba(255,210,230,0.2); }
+
+
+        /* ── Responsive ───────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+          .toolbar-title { font-size: 17px; }
+          .toolbar-label { display: none; }
+          .tb-btn { height: 28px; padding: 0 10px; font-size: 12px; }
+          .tb-btn.wide { width: 100px; }
+          .online-badge { padding: 3px 8px; }
+          .online-count { font-size: 11px; }
+          .toolbar-divider { height: 16px; }
+          .mode-toggle-btn { width: 40px; font-size: 11px; }
+          .mode-toggle-pill { width: 40px; }
+          .mode-toggle-pill.draw { transform: translateX(40px); }
+          .picker-popup, .draw-dropdown, .lofi-dropdown { width: 90vw; max-width: 280px; }
+          .sticker-picker { width: 90vw; max-width: 300px; }
+          .writing-node { max-width: calc(100% - 16px); }
+        }
+        @media (max-width: 480px) {
+          body { padding: 10px 4px; }
+  
+        /* ── Notebook dropdown ───────────────────────────────────────────── */
+        .nb-dropdown {
+          position: absolute; top: calc(100% + 10px);
+          left: 0;
+          background: #fffbf8;
+          border: 1px solid rgba(255,180,210,0.5);
+          border-radius: 16px; padding: 14px;
+          box-shadow: 0 12px 40px rgba(255,107,157,0.2), 0 4px 12px rgba(0,0,0,0.1);
+          z-index: 9999; width: 220px;
+          animation: popIn 0.15s ease;
+        }
+        .nb-dropdown-item {
+          display: flex; align-items: center; gap: 6px;
+          width: 100%; padding: 7px 8px;
+          background: none; border: 1.5px solid transparent;
+          border-radius: 10px; cursor: pointer;
+          font-family: 'Patrick Hand', cursive; font-size: 13px; color: #8b4060;
+          transition: all 0.12s;
+        }
+        .nb-dropdown-item:hover { background: rgba(255,210,230,0.3); border-color: rgba(255,180,210,0.3); }
+        .nb-dropdown-item.active { border-color: #ff85a2; background: rgba(255,210,230,0.2); }
+        .nb-dropdown-author { font-size: 10px; color: #c090b0; }
+        .nb-dropdown-new {
+          width: 100%; padding: 7px 8px; background: none;
+          border: 1.5px dashed rgba(255,180,210,0.5); border-radius: 10px;
+          font-family: 'Patrick Hand', cursive; font-size: 12px; color: #c090b0;
+          cursor: pointer; transition: all 0.12s;
+        }
+        .nb-dropdown-new:hover { background: rgba(255,210,230,0.2); color: #8b4060; border-color: #ff85a2; }
+        .nb-dropdown-input {
+          width: 100%; padding: 7px 10px; border-radius: 10px;
+          border: 1.5px solid #ff85a2; outline: none;
+          font-family: 'Patrick Hand', cursive; font-size: 13px; color: #4a2838;
+          background: rgba(255,255,255,0.95);
+        }
+
+        .toolbar { border-radius: 20px; padding: 6px 10px; gap: 6px; }
+          .toolbar-title { font-size: 15px; }
+          .tb-btn { height: 26px; padding: 0 8px; font-size: 11px; }
+          .ink-btn { width: 24px; height: 24px; }
+        }
+
       `}</style>
 
       <div className="toolbar">
         <span className="toolbar-title">shared notebook</span>
+
+        <div className="toolbar-divider" />
+        <div style={{ position: "relative", overflow: "visible", display: "flex", alignItems: "center" }}>
+          <button className={`tb-btn${showNbDropdown ? " active" : ""}`}
+            onClick={(e) => { e.stopPropagation(); closeAllPickers(); setShowNbDropdown(v => !v); }}
+            style={{ maxWidth: 140, overflow: "hidden" }}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "left" }}>
+              {notebooks.find(n => n.id === activeId)?.title || "notebooks"}
+            </span>
+            <span style={{ fontSize: 10, opacity: 0.6, flexShrink: 0 }}>▾</span>
+          </button>
+          {showNbDropdown && (
+            <NotebookDropdown
+              notebooks={notebooks}
+              activeId={activeId}
+              onSwitch={(id) => { setActiveId(id); window.scrollTo(0, 0); }}
+              onCreate={(title) => createNotebook(title, userName)}
+              onRename={renameNotebook}
+              onDelete={deleteNotebook}
+              userName={userName}
+              onClose={() => setShowNbDropdown(false)}
+            />
+          )}
+        </div>
 
         <div className="toolbar-divider" />
         <OnlineBadge count={onlineCount} />
@@ -2025,6 +2298,7 @@ export default function App() {
         </div>
 
         <div className="toolbar-divider" />
+
         <div className="mode-toggle-wrap">
           <div className="mode-toggle" onClick={(e) => e.stopPropagation()}>
             <div className={`mode-toggle-pill${isDrawingMode ? " draw" : ""}`} />
@@ -2035,8 +2309,7 @@ export default function App() {
                 setIsDrawingMode(false);
                 setShowDrawMenu(false);
                 setActiveInput(null);
-                setEditingId(null);
-              }}
+                          }}
               title="textbox mode"
             >
               Text
@@ -2048,8 +2321,7 @@ export default function App() {
                 setIsDrawingMode(true);
                 setShowDrawMenu(v => !v);
                 setActiveInput(null);
-                setEditingId(null);
-              }}
+                          }}
               title="draw mode"
             >
               Draw
@@ -2096,7 +2368,7 @@ export default function App() {
               const newH = extraHeight + 600;
               setExtraHeight(newH);
               await supabase.from("page_settings").upsert({
-                id: PAGE_THEME_ROW_ID,
+                id: "global-page-height",
                 theme_id: pageThemeId,
                 extra_height: newH,
                 updated_at: new Date().toISOString(),
@@ -2119,7 +2391,6 @@ export default function App() {
             <WritingNode
               key={w.id} writing={w}
               isEditing={editingId === w.id}
-              onStartEdit={(id) => setEditingId(id)}
               onDelete={handleDelete}
               onDragEnd={handleDragEnd}
               pageRef={pageRef}
@@ -2150,8 +2421,8 @@ export default function App() {
           {activeInput && !isDrawingMode && (
             <div className="active-input-wrapper"
               style={{
-                left: `${(activeInput.x / 100) * (pageRef.current?.offsetWidth || 900)}px`,
-                top:  `${(activeInput.y / 100) * (pageRef.current?.scrollHeight || 600)}px`,
+                left: `${activeInput.x}px`,
+                top:  `${activeInput.y}px`,
                 color: inkColor, fontFamily: inkFont,
               }}>
               <input
@@ -2176,6 +2447,7 @@ export default function App() {
         }} />
       )}
 
+      {/* persistent audio — always mounted so closing the lofi dropdown doesn't stop music */}
       <audio ref={audioRef} preload="none" />
 
       <JoinToasts events={joinEvents} />
@@ -2190,7 +2462,7 @@ export default function App() {
             setTransitioning(true);
             setTimeout(() => { setPageThemeId(id); setTransitioning(false); }, 220);
             await supabase.from("page_settings").upsert({
-              id: PAGE_THEME_ROW_ID,
+              id: "global-page-height",
               theme_id: id,
               extra_height: extraHeight,
               updated_at: new Date().toISOString(),
