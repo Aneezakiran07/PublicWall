@@ -403,7 +403,7 @@ function StickerGifPicker({ onPlace, onClose }) {
   );
 }
 
-function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
+function MediaNode({ item, onDelete, onDragEnd, onResize, onLock, pageRef }) {
   const wrapRef = useRef(null);
   const dragging = useRef(false);
   const resizing = useRef(false);
@@ -413,7 +413,8 @@ function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
   const currentSize = item.size || (item.media_type === "emoji" ? 64 : 120);
 
   const handleMouseDown = (e) => {
-    if (e.target.closest(".delete-btn") || e.target.closest(".resize-handle")) return;
+    if (item.locked) return;
+    if (e.target.closest(".delete-btn") || e.target.closest(".resize-handle") || e.target.closest(".lock-btn")) return;
     e.preventDefault();
     e.stopPropagation();
     dragging.current = true;
@@ -448,6 +449,7 @@ function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
   };
 
   const handleResizeDown = (e) => {
+    if (item.locked) return;
     e.preventDefault();
     e.stopPropagation();
     resizing.current = true;
@@ -484,7 +486,7 @@ function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
   return (
     <div
       ref={wrapRef}
-      className="media-node"
+      className={`media-node${item.locked ? " locked-node" : ""}`}
       style={{
       left: item.position_x,
       top:  item.position_y,
@@ -497,13 +499,16 @@ function MediaNode({ item, onDelete, onDragEnd, onResize, pageRef }) {
       ) : (
         <span className="sticker-emoji" style={{ fontSize: currentSize }}>{item.content}</span>
       )}
-      <button className="delete-btn" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(item.id); }}>×</button>
-      <div className="resize-handle" onMouseDown={handleResizeDown} title="drag to resize">⤡</div>
+      {!item.locked && <button className="delete-btn" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(item.id); }}>×</button>}
+      {!item.locked && <div className="resize-handle" onMouseDown={handleResizeDown} title="drag to resize">⤡</div>}
+      <button className={"lock-btn"} onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onLock(item.id, !item.locked); }} title={item.locked ? "click to unlock" : "click to lock"}>
+        {item.locked ? "🔒" : "🔓"}
+      </button>
     </div>
   );
 }
 
-function WritingNode({ writing, isEditing, onDelete, onDragEnd, pageRef }) {
+function WritingNode({ writing, isEditing, onDelete, onDragEnd, onLock, pageRef }) {
   const ref = useRef(null);
   const wrapRef = useRef(null);
   const saveTimer = useRef(null);
@@ -514,7 +519,7 @@ function WritingNode({ writing, isEditing, onDelete, onDragEnd, pageRef }) {
   const resizing = useRef(false);
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, fontSize: 20 });
 
-  useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
+  useEffect(() => { isEditingRef.current = isEditing && !writing.locked; }, [isEditing, writing.locked]);
   useEffect(() => {
     if (isEditing && ref.current) {
       ref.current.focus();
@@ -618,7 +623,7 @@ function WritingNode({ writing, isEditing, onDelete, onDragEnd, pageRef }) {
       <div
         ref={ref}
         className="writing-node-text"
-        contentEditable={isEditing}
+        contentEditable={isEditing && !writing.locked}
         suppressContentEditableWarning
         onInput={handleInput}
         onKeyDown={(e) => { if (e.key === "Escape") ref.current.blur(); }}
@@ -631,8 +636,11 @@ function WritingNode({ writing, isEditing, onDelete, onDragEnd, pageRef }) {
       {writing.author_name && (
         <div className="writing-author">~ {writing.author_name}</div>
       )}
-      <button className="delete-btn" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(writing.id); }}>×</button>
-      <div className="resize-handle-text" onMouseDown={handleResizeDown} title="drag to resize">⤡</div>
+      {!writing.locked && <button className="delete-btn" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(writing.id); }}>×</button>}
+      {!writing.locked && <div className="resize-handle-text" onMouseDown={handleResizeDown} title="drag to resize">⤡</div>}
+      <button className={"lock-btn"} onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onLock(writing.id, !writing.locked); }} title={writing.locked ? "click to unlock" : "click to lock"}>
+        {writing.locked ? "🔒" : "🔓"}
+      </button>
     </div>
   );
 }
@@ -731,7 +739,7 @@ function useOnlineCount() {
   return count;
 }
 
-// ── useJoinEvents: shows toast when someone joins/leaves ──────────────────────
+// ── useJoinEvents: shows toast when someone joins/leaves 
 function useJoinEvents(userName) {
   const [events, setEvents] = useState([]);
   const myKey = useRef(crypto.randomUUID());
@@ -861,7 +869,7 @@ function TypingIndicator({ users }) {
   );
 }
 
-// ── OnlineBadge: shows live count in the toolbar ─────────────────────────────
+// OnlineBadge: shows live count in the toolbar 
 function OnlineBadge({ count }) {
   return (
     <div className="online-badge" title={`${count} ${count === 1 ? "person" : "people"} online`}>
@@ -871,7 +879,7 @@ function OnlineBadge({ count }) {
   );
 }
 
-// ── DrawingCanvas ──────────────────────────────────────────────────────────────
+//  DrawingCanvas
 function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrokeComplete, onDrawStart, onDeleteStroke }) {
   const canvasRef = useRef(null);
   const isMouseDown = useRef(false);
@@ -1302,7 +1310,7 @@ function RenameModal({ notebook, onSave, onDelete, onClose }) {
   );
 }
 
-// ── useNotebooks ───────────────────────────────────────────────────────────────
+//  useNotebooks
 function useNotebooks() {
   const [notebooks, setNotebooks] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -1356,7 +1364,7 @@ function useNotebooks() {
   return { notebooks, activeId, setActiveId, createNotebook, renameNotebook, deleteNotebook };
 }
 
-// ── NotebookDropdown — lives inside the toolbar ───────────────────────────────
+//  NotebookDropdown — lives inside the toolbar 
 function NotebookDropdown({ notebooks, activeId, onSwitch, onCreate, onRename, onDelete, userName, onClose }) {
   const [renamingNb, setRenamingNb] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -1634,6 +1642,16 @@ export default function App() {
     await supabase.from("writings").delete().eq("id", id);
   };
 
+  const handleLock = async (id, locked) => {
+    setWritings(prev => prev.map(w => w.id === id ? { ...w, locked } : w));
+    await supabase.from("writings").update({ locked }).eq("id", id);
+  };
+
+  const handleMediaLock = async (id, locked) => {
+    setMediaItems(prev => prev.map(m => m.id === id ? { ...m, locked } : m));
+    await supabase.from("media_items").update({ locked }).eq("id", id);
+  };
+
   const handleDragEnd = async (id, newX, newY) => {
     const pageW    = pageRef.current?.offsetWidth || 900;
     const clampedX = Math.max(0, Math.min(newX, pageW - 160));
@@ -1665,6 +1683,7 @@ export default function App() {
     setMediaItems((prev) => prev.filter((m) => m.id !== id));
     await supabase.from("media_items").delete().eq("id", id);
   };
+
 
   const handleMediaDragEnd = async (id, newX, newY) => {
     const pageW    = pageRef.current?.offsetWidth || 900;
@@ -2000,6 +2019,18 @@ export default function App() {
           box-shadow: 0 0 0 1.5px rgba(100,150,255,0.4);
           user-select: text; caret-color: currentColor; text-shadow: none;
         }
+        .lock-btn {
+          position: absolute; top: -8px; left: -8px;
+          width: 18px; height: 18px; border-radius: 50%;
+          background: rgba(255,255,255,0.92); border: 1.5px solid rgba(255,180,210,0.6);
+          font-size: 10px; line-height: 1; cursor: pointer;
+          display: none; align-items: center; justify-content: center;
+          z-index: 20; padding: 0; transition: all 0.15s;
+        }
+        .lock-btn:hover { transform: scale(1.2); }
+        .writing-node:hover .lock-btn { display: flex; }
+        .media-node:hover .lock-btn { display: flex; }
+
         .delete-btn {
           position: absolute; top: -8px; right: -8px;
           width: 18px; height: 18px; border-radius: 50%;
@@ -2121,6 +2152,21 @@ export default function App() {
           color: #a07888; transition: all 0.15s; flex-shrink: 0;
         }
         .gif-load-more:hover { background: rgba(255,210,230,0.4); color: #8b4060; }
+        .lock-btn {
+          position: absolute; top: -8px; left: -8px;
+          width: 18px; height: 18px; border-radius: 50%;
+          background: rgba(255,255,255,0.92); border: 1.5px solid rgba(255,180,210,0.5);
+          font-size: 10px; line-height: 1; cursor: pointer;
+          display: none; align-items: center; justify-content: center;
+          z-index: 20; padding: 0; transition: all 0.15s;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+        }
+        .writing-node:hover .lock-btn,
+        .media-node:hover .lock-btn { display: flex; }
+
+        .writing-node.locked-node { cursor: default !important; }
+        .media-node.locked-node { cursor: default !important; }
+
         .lofi-dropdown {
           position: absolute; top: calc(100% + 10px);
           left: 50%; transform: translateX(-50%);
@@ -2393,6 +2439,7 @@ export default function App() {
               isEditing={editingId === w.id}
               onDelete={handleDelete}
               onDragEnd={handleDragEnd}
+              onLock={handleLock}
               pageRef={pageRef}
             />
           ))}
@@ -2403,6 +2450,7 @@ export default function App() {
               onDelete={handleMediaDelete}
               onDragEnd={handleMediaDragEnd}
               onResize={handleMediaResize}
+              onLock={handleMediaLock}
               pageRef={pageRef}
             />
           ))}
@@ -2474,3 +2522,6 @@ export default function App() {
     </>
   );
 }
+
+
+
