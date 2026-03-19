@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"; 
-import { createClient } from "@supabase/supabase-js"; 
-import { jsx } from "react/jsx-runtime";
+import { AuthInvalidJwtError, createClient } from "@supabase/supabase-js"; 
 
-
-// Image Compression Helper
+// --- NATIVE IMAGE COMPRESSION HELPER ---
 const compressImage = (file, maxSize = 1024, quality = 0.8) => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -45,13 +43,11 @@ const compressImage = (file, maxSize = 1024, quality = 0.8) => {
 const GIPHY_KEY = import.meta.env.VITE_GIPHY; 
 const SUPABASE_URL = import.meta.env.VITE_URL; 
 const SUPABASE_ANON_KEY = import.meta.env.VITE_ANON;
-
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const PAGE_THEME_ROW_ID = "global-page-theme";
 
 const FONTS = [ { label: "Caveat", value: "'Caveat', cursive" }, { label: "Kalam", value: "'Kalam', cursive" }, { label: "Patrick Hand", value: "'Patrick Hand', cursive" }, { label: "Indie Flower", value: "'Indie Flower', cursive" }, { label: "Shadows Into Light", value: "'Shadows Into Light', cursive" }, { label: "Pacifico", value: "'Pacifico', cursive" }, ];
 const INK_PRESETS = [ "#1a1a2e","#c0392b","#154360","#1e8449","#6c3483","#ba4a00", "#e91e8c","#00897b","#5c6bc0","#f57f17","#4a148c","#1b5e20", ];
-
 const PEN_COLORS = [ "#1a1a2e","#e74c3c","#e67e22","#f1c40f","#2ecc71","#3498db", "#9b59b6","#ff6b9d","#1abc9c","#e91e8c","#ffffff","#000000", ];
 const REACTION_EMOJIS = ["❤️", "🔥", "✨", "😂", "🥺", "👏"];
 const LOFI_TRACKS = [ { url: "https://stream.nightride.fm/nightride.mp3", label: "nightride fm" }, { url: "https://stream.nightride.fm/chillsynth.mp3", label: "chillsynth fm" }, { url: "https://stream.nightride.fm/datawave.mp3", label: "datawave fm" }, { url: "https://stream.nightride.fm/spacesynth.mp3", label: "spacesynth fm" }, ];
@@ -138,12 +134,10 @@ function ColorPicker({ color, onChange, onClose }) {
     setTimeout(() => document.addEventListener("mousedown", h), 10); 
     return () => document.removeEventListener("mousedown", h); 
   }, [onClose]); 
-  
   const handleHex = (v) => { 
     setHex(v); 
     if (/^#[0-9a-fA-F]{6} $/.test(v)) onChange(v); 
   };
-
   return (
     <div ref={ref} className="picker-popup" onClick={(e) => e.stopPropagation()}>
       <p className="picker-label">Quick picks</p>
@@ -192,13 +186,11 @@ function GifPicker({ onSelect, onClose }) {
   const lastQuery = useRef(""); 
   const ref = useRef(null); 
   const debounceRef = useRef(null); 
-  
   useEffect(() => { 
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); }; 
     setTimeout(() => document.addEventListener("mousedown", h), 10); 
     return () => document.removeEventListener("mousedown", h); 
   }, [onClose]); 
-
   const search = async (q, off = 0, append = false) => { 
     if (!q.trim()) return; 
     setLoading(true); 
@@ -214,7 +206,6 @@ function GifPicker({ onSelect, onClose }) {
     } 
     setLoading(false); 
   }; 
-  
   const searchTrending = async (off = 0, append = false) => { 
     setLoading(true); 
     try { 
@@ -229,9 +220,7 @@ function GifPicker({ onSelect, onClose }) {
     } 
     setLoading(false); 
   }; 
-  
   useEffect(() => { searchTrending(); }, []); 
-  
   const handleChange = (e) => { 
     const val = e.target.value; 
     setQuery(val); 
@@ -244,7 +233,6 @@ function GifPicker({ onSelect, onClose }) {
     } 
     debounceRef.current = setTimeout(() => { setOffset(0); search(val, 0, false); }, 400); 
   }; 
-  
   const handleKey = (e) => { 
     if (e.key === "Enter") { 
       clearTimeout(debounceRef.current); 
@@ -252,19 +240,16 @@ function GifPicker({ onSelect, onClose }) {
       search(query, 0, false); 
     } 
   }; 
-  
   const handleTag = (t) => { 
     setQuery(t); 
     lastQuery.current = t; 
     setOffset(0); 
     search(t, 0, false); 
   }; 
-  
   const handleLoadMore = () => { 
     if (lastQuery.current.trim()) search(lastQuery.current, offset, true); 
     else searchTrending(offset, true); 
   }; 
-
   return ( 
     <div ref={ref} className="gif-picker" onClick={(e) => e.stopPropagation()}> 
       <p className="picker-label">Giphy GIFs</p> 
@@ -291,15 +276,8 @@ function StickerGifPicker({ onPlace, onClose }) {
   const [stickerPack, setStickerPack] = useState(0); 
   const [stickerSearch, setStickerSearch] = useState(""); 
   const ref = useRef(null);
-
-  useEffect(() => { 
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); }; 
-    setTimeout(() => document.addEventListener("mousedown", h), 10); 
-    return () => document.removeEventListener("mousedown", h); 
-  }, [onClose]);
-
+  useEffect(() => { const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); }; setTimeout(() => document.addEventListener("mousedown", h), 10); return () => document.removeEventListener("mousedown", h); }, [onClose]);
   const filteredStickers = stickerSearch ? STICKER_PACKS.flatMap(p => p.stickers).filter(s => s.includes(stickerSearch.toLowerCase())) : STICKER_PACKS[stickerPack]?.stickers || [];
-
   return ( 
     <div ref={ref} className="sticker-picker" onClick={(e) => e.stopPropagation()}> 
       <div className="sp-tabs"> 
@@ -325,9 +303,7 @@ function StickerGifPicker({ onPlace, onClose }) {
               <button key={i} className="sp-emoji-btn" onClick={() => { onPlace({ type: "emoji", content: s }); onClose(); }}> {s} </button> 
             ))} 
             {filteredStickers.length === 0 && ( 
-              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "20px", color: "#c080a0", fontFamily: "'Patrick Hand', cursive", fontSize: 13 }}> 
-                No stickers found for "{stickerSearch}" 
-              </div> 
+              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "20px", color: "#c080a0", fontFamily: "'Patrick Hand', cursive", fontSize: 13 }}> No stickers found for "{stickerSearch}" </div> 
             )} 
           </div> 
         </> 
@@ -598,7 +574,6 @@ function useOnlineCount() {
 function useJoinEvents(userName) { 
   const [events, setEvents] = useState([]); 
   const myKey = useRef(crypto.randomUUID());
-
   useEffect(() => { 
     if (!userName) return; 
     const channel = supabase.channel("join-events", { config: { presence: { key: myKey.current } }, }); 
@@ -645,7 +620,6 @@ function useTypingUsers(userName, isTyping) {
   const [typingUsers, setTypingUsers] = useState([]); 
   const myKey = useRef(crypto.randomUUID()); 
   const channelRef = useRef(null);
-
   useEffect(() => { 
     if (!userName) return; 
     const channel = supabase.channel("typing-indicator", { config: { presence: { key: myKey.current } }, }); 
@@ -664,7 +638,6 @@ function useTypingUsers(userName, isTyping) {
     }); 
     return () => { supabase.removeChannel(channel); channelRef.current = null; }; 
   }, [userName]);
-
   useEffect(() => { 
     if (!channelRef.current || !userName) return; 
     channelRef.current.track({ name: userName, typing: isTyping }); 
@@ -696,6 +669,19 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
   const currentPath = useRef([]); 
   const [hoveredStrokeId, setHoveredStrokeId] = useState(null);
 
+  // 1. DYNAMIC CURSORS
+  const isEraser = penColor === "ERASER";
+  const isBucket = typeof penColor === "string" && penColor.endsWith("_FILL");
+  
+  const eraserSize = Math.max(16, penSize * 4); 
+  const eraserCursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${eraserSize}" height="${eraserSize}"><rect width="${eraserSize}" height="${eraserSize}" fill="white" stroke="black" stroke-width="2"/></svg>') ${eraserSize/2} ${eraserSize/2}, cell`;
+  
+  let customCursor = "default";
+  if (isDrawing) {
+      if (isEraser) customCursor = eraserCursor;
+      else customCursor = "crosshair"; // Pen and Special Pen use the same plus sign
+  }
+
   useEffect(() => { 
     const resize = () => { 
       const canvas = canvasRef.current; 
@@ -721,19 +707,46 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     if (!canvas) return; 
     const ctx = canvas.getContext("2d"); 
     ctx.clearRect(0, 0, canvas.width, canvas.height); 
+    
     strokes.forEach(stroke => { 
-      if (!stroke.points || stroke.points.length < 2) return; 
+      if (!stroke.points || stroke.points.length === 0) return; 
+      
       ctx.beginPath(); 
-      ctx.strokeStyle = stroke.color; 
-      ctx.lineWidth = stroke.size; 
       ctx.lineCap = "round"; 
       ctx.lineJoin = "round"; 
       ctx.moveTo(stroke.points.x, stroke.points.y); 
-      for (let i = 1; i < stroke.points.length; i++) { 
-        ctx.lineTo(stroke.points[i].x, stroke.points[i].y); 
-      } 
-      ctx.stroke(); 
+
+      if (stroke.points.length === 1) {
+        ctx.lineTo(stroke.points.x, stroke.points.y);
+      } else {
+        for (let i = 1; i < stroke.points.length; i++) { 
+          ctx.lineTo(stroke.points[i].x, stroke.points[i].y); 
+        } 
+      }
+      
+      if (stroke.color === "ERASER") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.lineWidth = stroke.size * 2;
+        ctx.stroke();
+      } else if (stroke.color && stroke.color.endsWith("_FILL")) {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = stroke.color.replace("_FILL", "");
+        
+        if (stroke.points.length <= 2) {
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+          ctx.closePath();
+          ctx.fill();
+        }
+      } else {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.strokeStyle = stroke.color; 
+        ctx.lineWidth = stroke.size; 
+        ctx.stroke(); 
+      }
     }); 
+    
+    ctx.globalCompositeOperation = "source-over";
   }, [strokes]);
 
   const getPos = (e) => { 
@@ -754,12 +767,31 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     const pos = getPos(e); 
     currentPath.current = [pos]; 
     const ctx = canvasRef.current.getContext("2d"); 
+    
     ctx.beginPath(); 
-    ctx.strokeStyle = penColor; 
-    ctx.lineWidth = penSize; 
     ctx.lineCap = "round"; 
     ctx.lineJoin = "round"; 
+    
+    // 2. THIS FIXES THE BLACK LINE BUG WHILE DRAGGING
+    if (penColor === "ERASER") {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.strokeStyle = "white"; // Perfect white eraser effect
+      ctx.lineWidth = penSize * 2;
+    } else if (typeof penColor === "string" && penColor.endsWith("_FILL")) {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = penColor.replace("_FILL", ""); // Strips the code to draw in your exact color!
+      ctx.lineWidth = penSize;
+    } else {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = penColor;
+      ctx.lineWidth = penSize;
+    }
+
     ctx.moveTo(pos.x, pos.y); 
+    
+    // This allows single clicks to draw the initial dot!
+    ctx.lineTo(pos.x, pos.y); 
+    ctx.stroke(); 
   };
 
   const draw = (e) => { 
@@ -775,7 +807,7 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
   const endDraw = () => { 
     if (!isMouseDown.current) return; 
     isMouseDown.current = false; 
-    if (currentPath.current.length > 1) { 
+    if (currentPath.current.length > 0) { 
       onStrokeComplete({ points: currentPath.current, color: penColor, size: penSize }); 
     } 
     currentPath.current = []; 
@@ -829,13 +861,29 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
   }, [isDrawing, strokes, pageRef]);
 
   const hoveredStroke = hoveredStrokeId ? strokes.find(s => s.id === hoveredStrokeId) : null; 
-  const getMid = (pts) => pts[Math.floor(pts.length / 2)];
+  const getMid = (pts) => pts && pts.length > 0 ? pts[Math.floor(pts.length / 2)] : null;
 
   return ( 
     <> 
-      <canvas ref={canvasRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 15, pointerEvents: isDrawing ? "all" : "none", cursor: isDrawing ? "crosshair" : "default", touchAction: "none", }} onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw} /> 
+      <canvas 
+        ref={canvasRef} 
+        style={{ 
+          position: "absolute", 
+          top: 0, 
+          left: 0, 
+          zIndex: 15, 
+          pointerEvents: isDrawing ? "all" : "none", 
+          cursor: customCursor, 
+          touchAction: "none", 
+        }} 
+        onMouseDown={startDraw} 
+        onMouseMove={draw} 
+        onMouseUp={endDraw} 
+        onMouseLeave={endDraw} 
+      /> 
       {!isDrawing && hoveredStroke && hoveredStroke.points && hoveredStroke.points.length >= 2 && (() => { 
         const mid = getMid(hoveredStroke.points); 
+        if (!mid) return null;
         return ( 
           <button style={{ position: "absolute", left: mid.x - 9, top: mid.y - 9, width: 18, height: 18, borderRadius: "50%", background: "#e74c3c", color: "white", border: "2px solid white", boxShadow: "0 1px 4px rgba(0,0,0,0.3)", fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 20, pointerEvents: "all", padding: 0, fontFamily: "sans-serif", }} onMouseEnter={() => setHoveredStrokeId(hoveredStroke.id)} onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setHoveredStrokeId(null); onDeleteStroke(hoveredStroke.id); }} >×</button> 
         ); 
@@ -843,7 +891,6 @@ function DrawingCanvas({ isDrawing, penColor, penSize, pageRef, strokes, onStrok
     </> 
   ); 
 }
-
 function PenSizeDot({ size, selected, onClick }) { 
   return ( 
     <button onClick={onClick} style={{ width: Math.max(size * 1.5, 12), height: Math.max(size * 1.5, 12), borderRadius: "50%", background: selected ? "#ff6b9d" : "#c0a0b0", border: selected ? "2px solid #ff85a2" : "2px solid transparent", cursor: "pointer", transition: "all 0.15s", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", }} /> 
@@ -854,54 +901,42 @@ function useLofiSync(userName) {
   const [playing, setPlaying] = useState(false); 
   const [trackIdx, setTrackIdx] = useState(0); 
   const channelRef = useRef(null); 
-  const isSyncingRef = useRef(false);
-
   useEffect(() => { 
     const channel = supabase.channel("lofi-sync"); 
     channelRef.current = channel; 
   }, []);
-
-  const broadcast = useCallback((payload) => { 
-    channelRef.current?.send({ type: "broadcast", event: "lofi", payload }); 
-  }, []);
-
+  const broadcast = useCallback((payload) => { channelRef.current?.send({ type: "broadcast", event: "lofi", payload }); }, []);
   const togglePlay = useCallback(() => { 
     const next = !playing; 
     setPlaying(next); 
     broadcast({ action: next ? "play" : "pause", trackIdx }); 
   }, [playing, trackIdx, broadcast]);
-
   const selectTrack = useCallback((idx) => { 
     setTrackIdx(idx); 
     setPlaying(true); 
     broadcast({ action: "track", trackIdx: idx }); 
   }, [broadcast]);
-
   return { playing, trackIdx, togglePlay, selectTrack }; 
 } 
 
 function LofiPlayer({ playing, trackIdx, onToggle, onSelectTrack, onClose }) { 
   const ref = useRef(null); 
   const track = LOFI_TRACKS[trackIdx];
-
   useEffect(() => { 
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); }; 
     setTimeout(() => document.addEventListener("mousedown", h), 10); 
     return () => document.removeEventListener("mousedown", h); 
   }, [onClose]);
-
   return ( 
     <div ref={ref} className="lofi-dropdown" onClick={(e) => e.stopPropagation()}> 
       <p className="picker-label">lofi radio</p> 
-      {/* (LofiPlayer layout content goes here - presumably omitted from original file snippet) */}
-    </div>
+    </div> 
   ); 
 } 
 
 function useReactions(userName) { 
   const [bursts, setBursts] = useState([]); 
   const channelRef = useRef(null);
-
   useEffect(() => { 
     const channel = supabase.channel("reactions-broadcast", { config: { broadcast: { self: false } } }); 
     channelRef.current = channel; 
@@ -913,7 +948,6 @@ function useReactions(userName) {
     }).subscribe(); 
     return () => { supabase.removeChannel(channel); }; 
   }, []);
-
   const sendReaction = useCallback((emoji) => { 
     const id = crypto.randomUUID(); 
     const x = 10 + Math.random() * 80; 
@@ -921,7 +955,6 @@ function useReactions(userName) {
     setTimeout(() => setBursts(prev => prev.filter(b => b.id !== id)), 2800); 
     channelRef.current?.send({ type: "broadcast", event: "reaction", payload: { emoji, name: userName || "someone" }, }); 
   }, [userName]);
-
   return { bursts, sendReaction }; 
 } 
 
@@ -970,15 +1003,14 @@ function RenameModal({ notebook, onSave, onDelete, onClose }) {
 function useNotebooks() { 
   const [notebooks, setNotebooks] = useState([]); 
   const [activeId, setActiveId] = useState(null);
-
+  
   useEffect(() => { 
     supabase.from("notebooks").select("*").order("created_at", { ascending: true }) 
       .then(({ data }) => { 
         if (data && data.length > 0) { 
-      setNotebooks(data); 
-      setActiveId(id => id || data[0].id);
-      }
-        else { 
+          setNotebooks(data); 
+          setActiveId(id => id || data[0].id); 
+        } else { 
           supabase.from("notebooks").insert([{ title: "main notebook" }]).select().single() 
             .then(({ data: nb }) => { if (nb) { setNotebooks([nb]); setActiveId(nb.id); } }); 
         } 
@@ -1049,7 +1081,12 @@ function NotebookDropdown({ notebooks, activeId, onSwitch, onCreate, onRename, o
         <button className="nb-dropdown-new" onClick={() => setShowCreate(true)}>+ new notebook</button> 
       )} 
       {renamingNb && ( 
-        <RenameModal notebook={renamingNb} onSave={async (title) => { await onRename(renamingNb.id, title); setRenamingNb(null); }} onDelete={async (id) => { const remaining = notebooks.filter(n => n.id !== id); if (remaining.length === 0) { alert("Can't delete the last notebook!"); return; } const switchTo = activeId === id ? remaining[0].id : activeId; await onDelete(id, switchTo); setRenamingNb(null); onClose(); }} onClose={() => setRenamingNb(null)} /> 
+        <RenameModal notebook={renamingNb} onSave={async (title) => { await onRename(renamingNb.id, title); setRenamingNb(null); }} onDelete={async (id) => { 
+          const remaining = notebooks.filter(n => n.id !== id); 
+          if (remaining.length === 0) { alert("Can't delete the last notebook!"); return; } 
+          const switchTo = activeId === id ? remaining[0].id : activeId; 
+          await onDelete(id, switchTo); setRenamingNb(null); onClose(); 
+        }} onClose={() => setRenamingNb(null)} /> 
       )} 
     </div> 
   ); 
@@ -1073,8 +1110,11 @@ export default function App() {
   const [transitioning, setTransitioning]     = useState(false); 
   const [extraHeight, setExtraHeight]         = useState(0);
 
+  // --- NEW TOOL STATES ---
   const [isDrawingMode, setIsDrawingMode]     = useState(false); 
   const [showDrawMenu, setShowDrawMenu]       = useState(false); 
+  const [drawTool, setDrawTool]               = useState("pen"); // pen, eraser, bucket
+  const myStrokeIds                           = useRef([]);      // undo history array
   const [penColor, setPenColor]               = useState("#e91e8c"); 
   const [penSize, setPenSize]                 = useState(3); 
   const [strokes, setStrokes]                 = useState([]);
@@ -1102,7 +1142,6 @@ export default function App() {
     audio.src = LOFI_TRACKS[lofiTrack].url; 
     if (lofiPlaying) { audio.play().catch(() => {}); } else { audio.pause(); } 
   }, [lofiPlaying, lofiTrack]); 
-  
   const [showLofi, setShowLofi] = useState(false); 
   const [showNbDropdown, setShowNbDropdown] = useState(false); 
   const [imageUploading, setImageUploading] = useState(false); 
@@ -1167,18 +1206,28 @@ export default function App() {
     return () => { supabase.removeChannel(ch); }; 
   }, [activeId]);
 
+  // --- UPDATED UNDO-SUPPORTED STROKE COMPLETION ---
   const handleStrokeComplete = useCallback(async (stroke) => { 
-    setStrokes(prev => [...prev, stroke]); 
-    const { data } = await supabase.from("drawing_strokes").insert([{ points: stroke.points, color: stroke.color, size: stroke.size, notebook_id: activeId, }]).select().single(); 
+    const tempId = crypto.randomUUID();
+    setStrokes(prev => [...prev, { ...stroke, id: tempId }]); 
+
+    const { data } = await supabase.from("drawing_strokes").insert([{ 
+      points: stroke.points, 
+      color: stroke.color, 
+      size: stroke.size, 
+      notebook_id: activeId, 
+    }]).select().single(); 
+
     if (data) { 
+      myStrokeIds.current.push(data.id);
       setStrokes(prev => { 
         const updated = [...prev]; 
-        const last = updated.length - 1; 
-        updated[last] = { ...updated[last], id: data.id }; 
+        const targetIdx = updated.findIndex(s => s.id === tempId);
+        if (targetIdx !== -1) updated[targetIdx] = { ...updated[targetIdx], id: data.id }; 
         return updated; 
       }); 
     } 
-  }, []);
+  }, [activeId]);
 
   const handleDeleteStroke = useCallback(async (id) => { 
     if (!id) return; 
@@ -1186,12 +1235,20 @@ export default function App() {
     await supabase.from("drawing_strokes").delete().eq("id", id); 
   }, []);
 
+  // --- NEW UNDO FUNCTION ---
+  const handleUndo = useCallback(async () => {
+    if (myStrokeIds.current.length === 0) return; 
+    const lastId = myStrokeIds.current.pop();
+    setStrokes(prev => prev.filter(s => s.id !== lastId));
+    await supabase.from("drawing_strokes").delete().eq("id", lastId);
+  }, []);
+
   const handleClearDrawing = async () => { 
     setStrokes([]); 
+    myStrokeIds.current = [];
     if (activeId) await supabase.from("drawing_strokes").delete().eq("notebook_id", activeId); 
   };
 
-  // NEW FIX: Clamping Text Coordinates natively 
   useEffect(() => { 
     const handler = (e) => { 
       if (isDrawingMode) return; 
@@ -1201,7 +1258,9 @@ export default function App() {
       const deleteBtn     = e.target.closest(".delete-btn"); 
       const mediaNode     = e.target.closest(".media-node"); 
       const stickerPicker = e.target.closest(".sticker-picker, .gif-picker"); 
+      
       if (toolbar || deleteBtn || mediaNode || stickerPicker) return; 
+      
       if (node) { 
         e.stopPropagation(); 
         e.preventDefault(); 
@@ -1209,8 +1268,9 @@ export default function App() {
         setActiveInput(null); 
         return; 
       } 
+      
       setEditingId(null); 
-
+      
       const page = pageRef.current;
       const rect = page.getBoundingClientRect();
       const localX = e.clientX - rect.left;
@@ -1300,7 +1360,6 @@ export default function App() {
     setShowStickerPicker(false); 
   }, [activeId]);
 
-  // Locking screen coordinates & Compressing before image upload
   const handleImageUpload = useCallback(async (file) => { 
     if (!file || !file.type.startsWith("image/")) return; 
 
@@ -1357,10 +1416,10 @@ export default function App() {
   };
 
   const currentFontLabel = FONTS.find((f) => f.value === inkFont)?.label || "Caveat"; 
-  const PEN_SIZES = [7-9];
+  const PEN_SIZES = [6-8];
 
-
-  return (
+  return ( 
+          
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Kalam:wght@300;400&family=Patrick+Hand&family=Indie+Flower&family=Shadows+Into+Light&family=Pacifico&display=swap');
@@ -2139,16 +2198,35 @@ export default function App() {
             />
           ))}
 
-          <DrawingCanvas
-            isDrawing={isDrawingMode}
-            penColor={penColor}
-            penSize={penSize}
-            pageRef={pageRef}
-            strokes={strokes}
-            onStrokeComplete={handleStrokeComplete}
-            onDrawStart={() => setShowDrawMenu(false)}
-            onDeleteStroke={handleDeleteStroke}
-          />
+                {isDrawingMode && (
+          <div style={{
+            position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+            display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.92)",
+            padding: "10px 16px", borderRadius: 30, boxShadow: "0 4px 15px rgba(255,107,157,0.15)", 
+            zIndex: 1000, border: "1.5px solid rgba(255,180,210,0.5)", fontFamily: "'Patrick Hand', cursive"
+          }}>
+             <button onClick={() => setDrawTool("pen")} style={{ background: drawTool === "pen" ? "rgba(255,107,157,0.2)" : "transparent", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontSize: 14 }}>Pen</button>
+             
+             {/* Renamed to Special Pen with a Plus icon */}
+             <button onClick={() => setDrawTool("bucket")} style={{ background: drawTool === "bucket" ? "rgba(255,107,157,0.2)" : "transparent", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontSize: 14 }}>Filling Pen</button>
+             
+             {/* Eraser now always has white text and a solid background to make it visible! */}
+             <button onClick={() => setDrawTool("eraser")} style={{ background: drawTool === "eraser" ? "rgba(255,107,157,0.2)" : "transparent",  border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontSize: 14 }}>Eraser</button>
+             
+             <button onClick={handleUndo} disabled={myStrokeIds.current.length === 0} style={{ opacity: myStrokeIds.current.length === 0 ? 0.4 : 1, background: "transparent", border: "none", cursor: "pointer", fontSize: 14 }}>Undo</button>
+          </div>
+        )}
+
+
+        <DrawingCanvas 
+          isDrawing={isDrawingMode} 
+          penColor={drawTool === "eraser" ? "ERASER" : (drawTool === "bucket" ? `${penColor}_FILL` : penColor)} 
+          penSize={penSize} 
+          pageRef={pageRef} 
+          strokes={strokes} 
+          onStrokeComplete={handleStrokeComplete} 
+          onDeleteStroke={handleDeleteStroke} 
+        />
 
           {activeInput && !isDrawingMode && (
             <div className="active-input-wrapper"
