@@ -23,10 +23,10 @@ The app also shows who is online, notifies you when someone joins or leaves, and
 ## Tech
 
 - React (Vite)
-- Supabase — Postgres database with realtime subscriptions, presence tracking, and broadcast channels
-- Giphy API — for GIF search
-- Google Fonts — handwriting fonts loaded via CSS import
-- nightride.fm — lofi radio streams
+- Supabase, Postgres database with realtime subscriptions, presence tracking, and broadcast channels
+- Giphy API, for GIF search
+- Google Fonts, handwriting fonts loaded via CSS import
+- nightride.fm, lofi radio streams
 
 
 ## Getting started
